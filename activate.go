@@ -38,6 +38,10 @@ func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 // building listeners, an appropriate error is returned along with partial list
 // of listeners.
 //
+// Multiple file descriptors are when listening on both IPv4 and
+// IPv6. Ensure that your server correctly handles listening on multiple
+// [net.Listener]s.
+//
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if specified socket is not
 //     found. According to [Apple Launchd Documentation], expected error is

@@ -456,7 +456,3 @@ func TestListenersWithName_NotManagedByLaunchd(t *testing.T) {
 		t.Errorf("expected error=%s, got=%s", syscall.Errno(3), err)
 	}
 }
-
-func TestDummy(t *testing.T) {
-	t.Errorf("")
-}
