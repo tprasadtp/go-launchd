@@ -141,6 +141,16 @@
   },
   {
     "color": "844fba",
+    "description": "CI updates",
+    "name": "ci"
+  },
+  {
+    "color": "844fba",
+    "description": "Bot updates",
+    "name": "bot"
+  },
+  {
+    "color": "844fba",
     "description": "Dependency updates - Go",
     "name": "dep/go"
   },
