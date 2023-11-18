@@ -50,6 +50,8 @@ func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 //   - [syscall.EINVAL] is returned if name contains null characters.
 //   - Appropriate unix error code is returned for unexpected errors.
 //   - On non macOS platforms (including iOS), this will always return error.
+//
+// [Apple Launchd Documentation]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
 func ListenersWithName(name string) ([]net.Listener, error) {
 	var count uint
 	var fd uintptr

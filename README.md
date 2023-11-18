@@ -8,7 +8,7 @@
 
 > **Warning**
 >
-> This module make use of syscall/unsafe package and thus may break between go releases
+> This module makes use of syscall and unsafe packages thus may break between go-releases
 > and between macOS versions.
 
 ## Socket Activation
