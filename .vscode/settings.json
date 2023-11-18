@@ -1,0 +1,18 @@
+{
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": [
+    "--fast"
+  ],
+  "go.buildTags": "docs,completion",
+  "go.coverOnSingleTest": true,
+  "go.coverOnSingleTestFile": true,
+"go.coverMode": "count",
+"files.associations": {
+    ".envrc": "shellscript",
+    "Dockerfile.*": "dockerfile",
+    "poetry.lock": "toml",
+    "*.hujson": "jsonc",
+    "stddef.h": "c",
+    "os_base.h": "c"
+},
+}

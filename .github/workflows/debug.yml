@@ -1,0 +1,44 @@
+name: test
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+    inputs:
+      tunnel:
+        type: boolean
+        description: 'Run the build with tunnel enabled'
+        required: false
+        default: false
+jobs:
+  debug:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: stable
+
+      - name: Setup vs code tunnel
+        if: github.event_name == 'workflow_dispatch' && inputs.tunnel
+        run: |
+          mkdir -p .tunnel
+          echo "Downloading VSCode CLI"
+          curl -sSfL \
+            --output .tunnel/vscode_cli.tar.gz \
+            "https://code.visualstudio.com/sha/download?build=stable&os=cli-darwin-x64"
+
+          echo "Unpacking VSCode CLI"
+          tar --extract --file=.tunnel/vscode_cli.tar.gz --directory=.tunnel
+
+          echo "Run Server"
+          ./.tunnel/code tunnel --accept-server-license-terms --name osx-socket
+
+      - name: test
+        if: ${{ !inputs.tunnel }}
+        run: go test -v ./...
+        env:
+          CG_ENABLED: "0"
