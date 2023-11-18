@@ -1,8 +1,5 @@
-name: test
+name: debug
 on:
-  push:
-    branches:
-      - "**"
   workflow_dispatch:
     inputs:
       tunnel:
@@ -12,6 +9,8 @@ on:
         default: false
 jobs:
   debug:
+    permissions:
+      contents: write
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -36,9 +35,3 @@ jobs:
 
           echo "Run Server"
           ./.tunnel/code tunnel --accept-server-license-terms --name osx-socket
-
-      - name: test
-        if: ${{ !inputs.tunnel }}
-        run: go test -v ./...
-        env:
-          CG_ENABLED: "0"
