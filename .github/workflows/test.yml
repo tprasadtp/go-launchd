@@ -16,6 +16,9 @@ jobs:
           - macos-11
           - macos-12
           - ubuntu-latest
+        cgo:
+          - "CGO_ENABLED=0"
+          - "CGO_ENABLED=1"
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -34,18 +37,11 @@ jobs:
         if: runner.os == 'Windows'
         run: New-Item -ItemType Directory -Path .gocover
 
-      - name: Test (CGO_ENABLED=0)
+      - name: Test
         run: go test -v -cover -count=1 -cover -test.gocoverdir=.gocover ./...
         env:
-          CGO_ENABLED: "0"
-
-      - name: Test (CGO_ENABLED=1)
-        run: go test -v -cover -count=1 -cover -test.gocoverdir=.gocover ./...
-        env:
-          CGO_ENABLED: "1"
-
-      - name: Coverage Get Percentage
-        run: go tool covdata percent -i=.gocover
+          # https://docs.github.com/en/actions/learn-github-actions/expressions#about-expressions
+          CGO_ENABLED: ${{ matrix.cgo == 'CGO_ENABLED=0' && '0' || '1' }}
 
       - name: Coverage Create Profile
         run: go tool covdata textfmt -i=.gocover -o .gocover/coverage.out
