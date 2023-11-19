@@ -104,145 +104,211 @@ func TestRemote(t *testing.T) {
 		t.SkipNow()
 	}
 
-	t.Run("NoSuchSocket", func(t *testing.T) {
-		_, err := launchd.ListenersWithName("z")
-		// As per docs, it should be ENOENT, but it returns ESRCH.
-		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
-			event := TestEvent{
-				Name:    t.Name(),
-				Success: false,
-				Message: fmt.Sprintf("expected=%s, got=%s", syscall.ENOENT, err),
-			}
-			NotifyTestServer(t, event)
-			t.Errorf("expected=%s, got=%s", syscall.ENOENT, err)
-		} else {
-			event := TestEvent{Name: t.Name(), Success: true}
-			NotifyTestServer(t, event)
-		}
-	})
-
-	t.Run("TCP", func(t *testing.T) {
-		l, err := launchd.ListenersWithName("tcp")
-		if err != nil || len(l) < 1 {
-			if err != nil {
-				event := TestEvent{
-					Name:    t.Name() + "ErrorCheck",
-					Success: false,
-					Message: fmt.Sprintf("expected no error, got=%s", err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected=nil, got=%s", err)
-			}
-			if len(l) == 0 {
+	t.Run("TCPListenersWithName", func(t *testing.T) {
+		t.Run("NoSuchSocket", func(t *testing.T) {
+			_, err := launchd.TCPListenersWithName("z")
+			// As per docs, it should be ENOENT, but it returns ESRCH.
+			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
 				event := TestEvent{
 					Name:    t.Name(),
 					Success: false,
-					Message: fmt.Sprintf("expected listeners>0, got=%d", len(l)),
-				}
-				t.Errorf("expected listeners>0, got=%d", len(l))
-				NotifyTestServer(t, event)
-			}
-		} else {
-			event := TestEvent{Name: t.Name(), Success: true}
-			NotifyTestServer(t, event)
-		}
-	})
-
-	t.Run("TCPActivateMultipleTimesMustError", func(t *testing.T) {
-		_, err := launchd.ListenersWithName("tcp")
-		if !errors.Is(err, syscall.EALREADY) {
-			event := TestEvent{
-				Name:    t.Name(),
-				Success: false,
-				Message: fmt.Sprintf("expected error=%s, got=%s", syscall.EALREADY, err),
-			}
-			NotifyTestServer(t, event)
-			t.Errorf("expected error=%s, got=%s", syscall.EALREADY, err)
-		} else {
-			event := TestEvent{Name: t.Name(), Success: true}
-			NotifyTestServer(t, event)
-		}
-	})
-
-	t.Run("UDP", func(t *testing.T) {
-		l, err := launchd.ListenersWithName("udp")
-		if err != nil || len(l) < 1 {
-			if err != nil {
-				event := TestEvent{
-					Name:    t.Name() + "ErrorCheck",
-					Success: false,
-					Message: fmt.Sprintf("expected no error, got=%s", err),
+					Message: fmt.Sprintf("expected=%s, got=%s", syscall.ENOENT, err),
 				}
 				NotifyTestServer(t, event)
-				t.Errorf("expected=nil, got=%s", err)
+				t.Errorf("expected=%s, got=%s", syscall.ENOENT, err)
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
 			}
-			if len(l) == 0 {
+		})
+
+		t.Run("SingleSocket", func(t *testing.T) {
+			l, err := launchd.TCPListenersWithName("tcp")
+			if len(l) > 0 {
+				t.Cleanup(func() {
+					for _, item := range l {
+						item.Close()
+					}
+				})
+			}
+			if err != nil || len(l) < 1 {
+				if err != nil {
+					event := TestEvent{
+						Name:    t.Name() + "-ErrorCheck",
+						Success: false,
+						Message: fmt.Sprintf("expected no error, got=%s", err),
+					}
+					NotifyTestServer(t, event)
+					t.Errorf("expected=nil, got=%s", err)
+				}
+				if len(l) == 0 {
+					event := TestEvent{
+						Name:    t.Name(),
+						Success: false,
+						Message: fmt.Sprintf("expected listeners>0, got=%d", len(l)),
+					}
+					t.Errorf("expected listeners>0, got=%d", len(l))
+					NotifyTestServer(t, event)
+				}
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
+			}
+		})
+
+		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
+			_, err := launchd.TCPListenersWithName("tcp")
+			if !errors.Is(err, syscall.EALREADY) {
 				event := TestEvent{
 					Name:    t.Name(),
 					Success: false,
-					Message: fmt.Sprintf("expected listeners>0, got=%d", len(l)),
+					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.EALREADY, err),
 				}
-				t.Errorf("expected listeners>0, got=%d", len(l))
+				NotifyTestServer(t, event)
+				t.Errorf("expected error=%s, got=%s", syscall.EALREADY, err)
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
 				NotifyTestServer(t, event)
 			}
-		} else {
-			event := TestEvent{Name: t.Name(), Success: true}
-			NotifyTestServer(t, event)
-		}
+		})
+
+		t.Run("TCPMultiple", func(t *testing.T) {
+			l, err := launchd.TCPListenersWithName("tcp-multiple")
+			if len(l) > 0 {
+				t.Cleanup(func() {
+					for _, item := range l {
+						item.Close()
+					}
+				})
+			}
+			if err != nil || len(l) < 2 {
+				if err != nil {
+					event := TestEvent{
+						Name:    t.Name() + "ErrorCheck",
+						Success: false,
+						Message: fmt.Sprintf("expected no error, got=%s", err),
+					}
+					NotifyTestServer(t, event)
+					t.Errorf("expected=nil, got=%s", err)
+				}
+				if len(l) < 2 {
+					event := TestEvent{
+						Name:    t.Name(),
+						Success: false,
+						Message: fmt.Sprintf("expected listeners>1, got=%d", len(l)),
+					}
+					t.Errorf("expected listeners>1, got=%d", len(l))
+					NotifyTestServer(t, event)
+				}
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
+			}
+		})
 	})
 
-	t.Run("TCPMultiple", func(t *testing.T) {
-		l, err := launchd.ListenersWithName("tcp-multiple")
-		if err != nil || len(l) < 2 {
-			if err != nil {
-				event := TestEvent{
-					Name:    t.Name() + "ErrorCheck",
-					Success: false,
-					Message: fmt.Sprintf("expected no error, got=%s", err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected=nil, got=%s", err)
-			}
-			if len(l) < 2 {
+	t.Run("UDPListenersWithName", func(t *testing.T) {
+		t.Run("NoSuchSocket", func(t *testing.T) {
+			_, err := launchd.UDPListenersWithName("z")
+			// As per docs, it should be ENOENT, but it returns ESRCH.
+			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
 				event := TestEvent{
 					Name:    t.Name(),
 					Success: false,
-					Message: fmt.Sprintf("expected listeners>1, got=%d", len(l)),
+					Message: fmt.Sprintf("expected=%s, got=%s", syscall.ENOENT, err),
 				}
-				t.Errorf("expected listeners>1, got=%d", len(l))
+				NotifyTestServer(t, event)
+				t.Errorf("expected=%s, got=%s", syscall.ENOENT, err)
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
 				NotifyTestServer(t, event)
 			}
-		} else {
-			event := TestEvent{Name: t.Name(), Success: true}
-			NotifyTestServer(t, event)
-		}
-	})
+		})
 
-	t.Run("UDPMultiple", func(t *testing.T) {
-		l, err := launchd.ListenersWithName("udp-multiple")
-		if err != nil || len(l) < 2 {
-			if err != nil {
-				event := TestEvent{
-					Name:    t.Name() + "ErrorCheck",
-					Success: false,
-					Message: fmt.Sprintf("expected no error, got=%s", err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected=nil, got=%s", err)
+		t.Run("SingleSocket", func(t *testing.T) {
+			l, err := launchd.UDPListenersWithName("udp")
+			if len(l) > 0 {
+				t.Cleanup(func() {
+					for _, item := range l {
+						item.Close()
+					}
+				})
 			}
-			if len(l) < 2 {
+			if err != nil || len(l) < 1 {
+				if err != nil {
+					event := TestEvent{
+						Name:    t.Name() + "-ErrorCheck",
+						Success: false,
+						Message: fmt.Sprintf("expected no error, got=%s", err),
+					}
+					NotifyTestServer(t, event)
+					t.Errorf("expected=nil, got=%s", err)
+				}
+				if len(l) == 0 {
+					event := TestEvent{
+						Name:    t.Name(),
+						Success: false,
+						Message: fmt.Sprintf("expected listeners>0, got=%d", len(l)),
+					}
+					t.Errorf("expected listeners>0, got=%d", len(l))
+					NotifyTestServer(t, event)
+				}
+			} else {
+				t.Logf("Listener: %+v", l[0])
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
+			}
+		})
+
+		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
+			_, err := launchd.UDPListenersWithName("tcp")
+			if !errors.Is(err, syscall.EALREADY) {
 				event := TestEvent{
 					Name:    t.Name(),
 					Success: false,
-					Message: fmt.Sprintf("expected listeners>1, got=%d", len(l)),
+					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.EALREADY, err),
 				}
-				t.Errorf("expected listeners>1, got=%d", len(l))
+				NotifyTestServer(t, event)
+				t.Errorf("expected error=%s, got=%s", syscall.EALREADY, err)
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
 				NotifyTestServer(t, event)
 			}
-		} else {
-			event := TestEvent{Name: t.Name(), Success: true}
-			NotifyTestServer(t, event)
-		}
+		})
+
+		t.Run("MultipleSockets", func(t *testing.T) {
+			l, err := launchd.UDPListenersWithName("udp-multiple")
+			if len(l) > 0 {
+				t.Cleanup(func() {
+					for _, item := range l {
+						item.Close()
+					}
+				})
+			}
+			if err != nil || len(l) < 2 {
+				if err != nil {
+					event := TestEvent{
+						Name:    t.Name() + "ErrorCheck",
+						Success: false,
+						Message: fmt.Sprintf("expected no error, got=%s", err),
+					}
+					NotifyTestServer(t, event)
+					t.Errorf("expected=nil, got=%s", err)
+				}
+				if len(l) < 2 {
+					event := TestEvent{
+						Name:    t.Name(),
+						Success: false,
+						Message: fmt.Sprintf("expected listeners>1, got=%d", len(l)),
+					}
+					t.Errorf("expected listeners>1, got=%d", len(l))
+					NotifyTestServer(t, event)
+				}
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
+			}
+		})
 	})
 
 	request, err := http.NewRequestWithContext(
@@ -438,21 +504,29 @@ func TestListenersWithName(t *testing.T) {
 	}
 
 	// Check Log output from launchd unit
-	if counter.showLogs.Load() || counter.err.Load() > 0 || (counter.err.Load() == 0 && counter.ok.Load() == 0) {
-		buf, _ := os.ReadFile(stdout)
-		t.Logf("Remote Stdout:\n%s", string(buf))
+	buf, _ := os.ReadFile(stdout)
+	t.Logf("Remote Stdout:\n%s", string(buf))
 
-		buf, _ = os.ReadFile(stderr)
-		t.Logf("Remote Stderr:\n%s", string(buf))
-	}
+	buf, _ = os.ReadFile(stderr)
+	t.Logf("Remote Stderr:\n%s", string(buf))
 }
 
-func TestListenersWithName_NotManagedByLaunchd(t *testing.T) {
-	rv, err := launchd.ListenersWithName("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+func TestTCPListenersWithName_NotManagedByLaunchd(t *testing.T) {
+	rv, err := launchd.TCPListenersWithName("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(rv) != 0 {
 		t.Errorf("expected no listeners when process is not manged by launchd")
 	}
-	if !errors.Is(err, syscall.Errno(3)) {
+	if !errors.Is(err, syscall.ESRCH) {
+		t.Errorf("expected error=%s, got=%s", syscall.Errno(3), err)
+	}
+}
+
+func TestUDPListenersWithName_NotManagedByLaunchd(t *testing.T) {
+	rv, err := launchd.UDPListenersWithName("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+	if len(rv) != 0 {
+		t.Errorf("expected no listeners when process is not manged by launchd")
+	}
+	if !errors.Is(err, syscall.ESRCH) {
 		t.Errorf("expected error=%s, got=%s", syscall.Errno(3), err)
 	}
 }
