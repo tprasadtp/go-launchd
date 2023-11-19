@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -22,6 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -43,6 +45,7 @@ type TemplateData struct {
 	GoTestServerAddr string
 	GoTestBinary     string
 	GoTestName       string
+	GoCoverDir       string
 	StdoutFile       string
 	StderrFile       string
 	TCP              string
@@ -202,6 +205,14 @@ func TestRemote(t *testing.T) {
 	if _, ok := os.LookupEnv("GO_TEST_SERVER_ADDR"); !ok {
 		t.SkipNow()
 	}
+
+	t.Logf("Getwd:%s", func() string {
+		v, err := os.Getwd()
+		if err != nil {
+			return err.Error()
+		}
+		return v
+	}())
 
 	t.Run("TCPListeners", func(t *testing.T) {
 		t.Run("NoSuchSocket", func(t *testing.T) {
@@ -438,6 +449,14 @@ func TestListeners(t *testing.T) {
 	}{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 
+	t.Logf("Getwd:%s", func() string {
+		v, err := os.Getwd()
+		if err != nil {
+			return err.Error()
+		}
+		return v
+	}())
+
 	// Handler
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -510,13 +529,47 @@ func TestListeners(t *testing.T) {
 	}
 
 	// Render template
+	//
 	bundle := fmt.Sprintf("test.go-svc.%s", hex.EncodeToString(rb))
+
+	// Define coverage data directory.
+	//
+	// This uses Undocumented/Unexported test flag: -test.gocoverdir.
+	// https://github.com/golang/go/issues/51430#issuecomment-1344711300
+	var goCoverDir string
+	var goCoverDirEnv = strings.TrimSpace(os.Getenv("GOCOVERDIR"))
+	var gocoverdirFlag = flag.Lookup("test.gocoverdir")
+	if goCoverDir == "" && gocoverdirFlag != nil {
+		goCoverDir = gocoverdirFlag.Value.String()
+		t.Logf("test.gocoverdir=%s(via test-flag)", goCoverDir)
+	}
+
+	if goCoverDir == "" && goCoverDirEnv != "" {
+		goCoverDir = goCoverDirEnv
+		t.Logf("test.gocoverdir=%s(via env GOCOVERDIR)", goCoverDir)
+	}
+
+	// Fallback to per test's temp dir.
+	if goCoverDir == "" {
+		goCoverDir = t.TempDir()
+		t.Logf("test.gocoverdir=%s(testing.TempDir)", goCoverDir)
+	}
+
+	// Get absolute path for GoCoverDir.
+	// Because launchd unit may run under different working directory.
+	goCoverDirAbs, err := filepath.Abs(goCoverDir)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path of test.gocoverdir(%s):%s",
+			goCoverDir, err)
+	}
+
 	plistFileName := filepath.Join(agentsDir, fmt.Sprintf("%s.plist", bundle))
 	data := TemplateData{
 		BundleID:         bundle,
 		GoTestServerAddr: server.URL,
 		GoTestBinary:     os.Args[0],
 		GoTestName:       "^(TestRemote|TestTrampoline)",
+		GoCoverDir:       goCoverDirAbs,
 		StdoutFile:       stdout,
 		StderrFile:       stderr,
 		TCP:              strconv.Itoa(GetFreePort(t)),
@@ -525,8 +578,8 @@ func TestListeners(t *testing.T) {
 		UDPMultiple:      strconv.Itoa(GetFreePort(t)),
 	}
 
-	t.Logf("Ports: TCP=%s, UDP=%s, TCPDualStack=%s, UDPDualStack=%s",
-		data.UDP, data.TCP, data.UDPMultiple, data.TCPMultiple)
+	t.Logf("Ports: TCP=%s, UDP=%s, TCPDualStack=%s, UDPDualStack=%s, GoCoverDir=%s",
+		data.UDP, data.TCP, data.UDPMultiple, data.TCPMultiple, data.GoCoverDir)
 
 	t.Logf("Creating plist file: %s", plistFileName)
 	plistFile, err := os.OpenFile(plistFileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)

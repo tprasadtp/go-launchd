@@ -17,6 +17,7 @@
             <string>-test.run={{.GoTestName}}</string>
             <string>-test.timeout=30s</string>
             <string>-test.v=true</string>
+            <string>-test.gocoverdir={{.GoCoverDir}}</string>
         </array>
         <key>RunAtLoad</key>
         <true />

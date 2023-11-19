@@ -16,7 +16,6 @@ jobs:
           - macos-11
           - macos-12
           - ubuntu-latest
-          - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -27,12 +26,29 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
+      - name: Create Coverage data directory (Unix)
+        if: runner.os != 'Windows'
+        run: mkdir -p .gocover
+
+      - name: Create Coverage data directory (Windows)
+        if: runner.os == 'Windows'
+        run: New-Item -ItemType Directory -Path .gocover
+
       - name: Test (CGO_ENABLED=0)
-        run: go test -v ./...
+        run: go test -v -cover -count=1 -cover -test.gocoverdir=.gocover ./...
         env:
           CGO_ENABLED: "0"
 
       - name: Test (CGO_ENABLED=1)
-        run: go test -v ./...
+        run: go test -v -cover -count=1 -cover -test.gocoverdir=.gocover ./...
         env:
           CGO_ENABLED: "1"
+
+      - name: Coverage Get Percentage
+        run: go tool covdata percent -i=.gocover
+
+      - name: Coverage Create Profile
+        run: go tool covdata textfmt -i=.gocover -o .gocover/coverage.out
+
+      - name: Coverage View Profile
+        run: go tool cover -func .gocover/coverage.out

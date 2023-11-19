@@ -10,8 +10,22 @@
 # Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
+# Output of the go coverage tool
 *.out
+*.cover
+cover.txt
+coverage.txt
+cover.profile
+coverprofile.*
+.cover/
+.coverdata/
+.coverage/
+.coverage-data/
+.gocover/
+.gocov/
+.gocoverage/
+.go-coverage-data/
+.go-coverage/
 
 ### Linux ###
 *~

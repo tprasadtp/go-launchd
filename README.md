@@ -13,4 +13,7 @@
 
 ## Socket Activation
 
-Supports [Launchd Socket Activation](https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket) _without_ using cgo. See [docs](https://pkg.go.dev/github.com/tprasadtp/go-launchd) for more info and examples.
+Supports [Launchd Socket Activation](https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket) _without_ using cgo(`CGO_ENABLED=0`), by making calls to
+libc directly. This makes it simple to cross compile from your Linux/Windows CI machines.
+
+See [API docs](https://pkg.go.dev/github.com/tprasadtp/go-launchd) for more info and examples.
