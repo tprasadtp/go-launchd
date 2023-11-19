@@ -66,6 +66,26 @@
                 <key>SockType</key>
                 <string>dgram</string>
             </dict>
+            <!--tcp-dualstack-single-socket-->
+            <key>tcp-dualstack-single-socket</key>
+            <dict>
+                <key>SockServiceName</key>
+                <string>{{.TCPDualStackSingleSocket}}</string>
+                <key>SockType</key>
+                <string>stream</string>
+                <key>SockFamily</key>
+                <string>IPv4v6</string>
+            </dict>
+            <!--udp-dualstack-single-socket-->
+            <key>udp-dualstack-single-socket</key>
+            <dict>
+                <key>SockServiceName</key>
+                <string>{{.UDPDualStackSingleSocket}}</string>
+                <key>SockType</key>
+                <string>dgram</string>
+                <key>SockFamily</key>
+                <string>IPv4v6</string>
+            </dict>
         </dict>
     </dict>
 </plist>
