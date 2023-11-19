@@ -3,7 +3,7 @@
   <component name="Go" enabled="true">
     <buildTags>
       <option name="os" value="darwin" />
-      <option name="cgo" value="NO" />
+      <option name="cgo" value="YES" />
       <option name="compiler" value="gc" />
     </buildTags>
   </component>
