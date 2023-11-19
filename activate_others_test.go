@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2023 Prasad Tengse
 // SPDX-License-Identifier: MIT
 
-//go:build !darwin
+//go:build !darwin || ios
 
 package launchd_test
 
