@@ -12,9 +12,9 @@ import (
 	"unsafe"
 )
 
-//go:cgo_import_dynamic libc_launch_activate_socket launch_activate_socket "/usr/lib/libSystem.B.dylib"
+//go:cgo_import_dynamic libxpc_launch_activate_socket launch_activate_socket "/usr/lib/system/libxpc.dylib"
 //nolint:revive,stylecheck // ignore
-var libc_launch_activate_socket_trampoline_addr uintptr
+var libxpc_launch_activate_socket_trampoline_addr uintptr
 
 //go:cgo_import_dynamic libc_free free "/usr/lib/libSystem.B.dylib"
 //nolint:revive,stylecheck // ignore
@@ -34,7 +34,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 		return nil, fmt.Errorf("launchd: invalid socket name(%s): %w", name, err)
 	}
 
-	// Call libc function, launch_activate_socket.
+	// Call libxpc function, launch_activate_socket.
 	//
 	// int launch_activate_socket(const char *name,  int *_Nonnull *_Nullable fd, size_t *count)
 	//
@@ -64,7 +64,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	//   - EALREADY, if socket has already been activated by the caller.
 	//
 	r1, _, e1 := syscall_syscall(
-		libc_launch_activate_socket_trampoline_addr,
+		libxpc_launch_activate_socket_trampoline_addr,
 		uintptr(unsafe.Pointer(cgoName)), // socket name to filter by
 		uintptr(unsafe.Pointer(&fd)),     // Pointer to *_Nullable fd
 		uintptr(unsafe.Pointer(&count)),  // number of sockets returned
