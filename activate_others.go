@@ -7,8 +7,9 @@ package launchd
 
 import (
 	"fmt"
+	"syscall"
 )
 
 func listenerFdsWithName(_ string) ([]int32, error) {
-	return nil, fmt.Errorf("launchd: only supported on macOS")
+	return nil, fmt.Errorf("launchd: only supported on macOS: %w", syscall.ENOSYS)
 }

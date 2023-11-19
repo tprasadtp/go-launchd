@@ -31,8 +31,7 @@ import (
 //     [syscall.ENOENT], however implementations return [syscall.ESRCH].
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
 //   - [syscall.EINVAL] is returned if name contains null characters.
-//   - Appropriate unix error code is returned for unexpected errors.
-//   - On non macOS platforms (including iOS), this will always return error.
+//   - [syscall.ENOSYS] is returned on non macOS platforms (including iOS).
 //
 // [Apple Launchd Documentation]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
 func TCPListeners(name string) ([]net.Listener, error) {
@@ -80,8 +79,7 @@ func TCPListeners(name string) ([]net.Listener, error) {
 //     [syscall.ENOENT], however implementations return [syscall.ESRCH].
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
 //   - [syscall.EINVAL] is returned if name contains null characters.
-//   - Appropriate unix error code is returned for unexpected errors.
-//   - On non macOS platforms (including iOS), this will always return error.
+//   - [syscall.ENOSYS] is returned on non macOS platforms (including iOS).
 //
 // [Apple Launchd Documentation]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
 func UDPListeners(name string) ([]net.PacketConn, error) {
