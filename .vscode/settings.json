@@ -9,9 +9,4 @@
   // Enable go vulnerability checks.
   "go.diagnostic.vulncheck": "Imports",
   "go.testTimeout": "60s",
-  "gopls": {
-    "build.buildFlags": [
-      "-tags=darwin"
-    ]
-  }
 }
