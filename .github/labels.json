@@ -141,6 +141,16 @@
   },
   {
     "color": "844fba",
+    "description": "Tests/Testing code",
+    "name": "tests"
+  },
+  {
+    "color": "844fba",
+    "description": "Integration tests",
+    "name": "tests/integration"
+  },
+  {
+    "color": "844fba",
     "description": "CI updates",
     "name": "ci"
   },
