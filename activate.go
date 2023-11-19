@@ -11,16 +11,15 @@ import (
 	"slices"
 )
 
-// TCPListenersWithName returns slice of [net.Listener] for specified TCP socket,
+// TCPListeners returns slice of [net.Listener] for specified TCP socket,
 // as mentioned in launchd plist file.
 //
-// This does not make use of cgo and makes calls to using system library directly.
-// This is obviously not supported on ios.
+// This does not make use of cgo and makes calls to using libc directly.
+// This is obviously not supported on iOS.
 //
-// It is responsibility of the caller to close the returned listeners whenever
-// required. They are not closed even when there is an error. In case of error
-// building listeners, an appropriate error is returned along with partial list
-// of listeners.
+// In case of error building listeners, an appropriate error is returned,
+// along with partial list of listeners. It is responsibility of the caller to
+// close the returned listeners whenever required.
 //
 // Multiple file descriptors are returned when listening on both IPv4 and
 // IPv6. Ensure that your server correctly handles listening on multiple
@@ -36,8 +35,8 @@ import (
 //   - On non macOS platforms (including iOS), this will always return error.
 //
 // [Apple Launchd Documentation]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
-func TCPListenersWithName(name string) ([]net.Listener, error) {
-	fdSlice, err := listenersFdsWithName(name)
+func TCPListeners(name string) ([]net.Listener, error) {
+	fdSlice, err := listenerFdsWithName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -61,16 +60,15 @@ func TCPListenersWithName(name string) ([]net.Listener, error) {
 	return slices.Clip(listeners), nil
 }
 
-// UDPListenersWithName returns slice of [net.PacketConn] for specified UDP
+// UDPListeners returns slice of [net.PacketConn] for specified UDP
 // socket name, as  mentioned in launchd plist file.
 //
-// This does not make use of cgo and makes calls to using system library directly.
-// This is obviously not supported on ios.
+// This does not make use of cgo and makes calls to using libc directly.
+// This is obviously not supported on iOS.
 //
-// It is responsibility of the caller to close the returned listeners whenever
-// required. They are not closed even when there is an error. In case of error
-// building listeners, an appropriate error is returned along with partial list
-// of listeners.
+// In case of error building listeners, an appropriate error is returned,
+// along with partial list of listeners. It is responsibility of the caller to
+// close the returned listeners whenever required.
 //
 // Multiple file descriptors are returned when listening on both IPv4 and
 // IPv6. Ensure that your server correctly handles listening on multiple
@@ -86,8 +84,8 @@ func TCPListenersWithName(name string) ([]net.Listener, error) {
 //   - On non macOS platforms (including iOS), this will always return error.
 //
 // [Apple Launchd Documentation]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
-func UDPListenersWithName(name string) ([]net.PacketConn, error) {
-	fdSlice, err := listenersFdsWithName(name)
+func UDPListeners(name string) ([]net.PacketConn, error) {
+	fdSlice, err := listenerFdsWithName(name)
 	if err != nil {
 		return nil, err
 	}

@@ -99,7 +99,7 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 }
 
 // Start a simple http server binding to socket and test if it is reachable.
-func SocketServerPing(t *testing.T, listener net.Listener) {
+func TCPSocketServerPing(t *testing.T, listener net.Listener) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	mux := http.NewServeMux()
@@ -203,9 +203,9 @@ func TestRemote(t *testing.T) {
 		t.SkipNow()
 	}
 
-	t.Run("TCPListenersWithName", func(t *testing.T) {
+	t.Run("TCPListeners", func(t *testing.T) {
 		t.Run("NoSuchSocket", func(t *testing.T) {
-			_, err := launchd.TCPListenersWithName("z")
+			_, err := launchd.TCPListeners("z")
 			// As per docs, it should be ENOENT, but it returns ESRCH.
 			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
 				event := TestEvent{
@@ -222,7 +222,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("SingleSocket", func(t *testing.T) {
-			l, err := launchd.TCPListenersWithName("tcp")
+			l, err := launchd.TCPListeners("tcp")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -250,14 +250,14 @@ func TestRemote(t *testing.T) {
 					NotifyTestServer(t, event)
 				}
 			} else {
-				t.Run("SocketServerPing", func(t *testing.T) {
-					SocketServerPing(t, l[0])
+				t.Run("TCPSocketServerPing", func(t *testing.T) {
+					TCPSocketServerPing(t, l[0])
 				})
 			}
 		})
 
 		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
-			_, err := launchd.TCPListenersWithName("tcp")
+			_, err := launchd.TCPListeners("tcp")
 			if !errors.Is(err, syscall.EALREADY) {
 				event := TestEvent{
 					Name:    t.Name(),
@@ -273,7 +273,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("MultipleSockets", func(t *testing.T) {
-			l, err := launchd.TCPListenersWithName("tcp-multiple")
+			l, err := launchd.TCPListeners("tcp-multiple")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -302,18 +302,18 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				for i, item := range l {
-					t.Run(fmt.Sprintf("SocketServerPing-%d", i),
+					t.Run(fmt.Sprintf("TCPSocketServerPing-%d", i),
 						func(t *testing.T) {
-							SocketServerPing(t, item)
+							TCPSocketServerPing(t, item)
 						})
 				}
 			}
 		})
 	})
 
-	t.Run("UDPListenersWithName", func(t *testing.T) {
+	t.Run("UDPListeners", func(t *testing.T) {
 		t.Run("NoSuchSocket", func(t *testing.T) {
-			_, err := launchd.UDPListenersWithName("z")
+			_, err := launchd.UDPListeners("z")
 			// As per docs, it should be ENOENT, but it returns ESRCH.
 			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
 				event := TestEvent{
@@ -330,7 +330,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("SingleSocket", func(t *testing.T) {
-			l, err := launchd.UDPListenersWithName("udp")
+			l, err := launchd.UDPListeners("udp")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -364,7 +364,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
-			_, err := launchd.UDPListenersWithName("tcp")
+			_, err := launchd.UDPListeners("tcp")
 			if !errors.Is(err, syscall.EALREADY) {
 				event := TestEvent{
 					Name:    t.Name(),
@@ -380,7 +380,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("MultipleSockets", func(t *testing.T) {
-			l, err := launchd.UDPListenersWithName("udp-multiple")
+			l, err := launchd.UDPListeners("udp-multiple")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -430,7 +430,7 @@ func TestRemote(t *testing.T) {
 	defer resp.Body.Close()
 }
 
-func TestListenersWithName(t *testing.T) {
+func TestListeners(t *testing.T) {
 	counter := struct {
 		ok       atomic.Uint64
 		err      atomic.Uint64
@@ -615,7 +615,7 @@ func TestListenersWithName(t *testing.T) {
 }
 
 func TestTCPListenersWithName_NotManagedByLaunchd(t *testing.T) {
-	rv, err := launchd.TCPListenersWithName("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+	rv, err := launchd.TCPListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(rv) != 0 {
 		t.Errorf("expected no listeners when process is not manged by launchd")
 	}
@@ -625,7 +625,7 @@ func TestTCPListenersWithName_NotManagedByLaunchd(t *testing.T) {
 }
 
 func TestUDPListenersWithName_NotManagedByLaunchd(t *testing.T) {
-	rv, err := launchd.UDPListenersWithName("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+	rv, err := launchd.UDPListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(rv) != 0 {
 		t.Errorf("expected no listeners when process is not manged by launchd")
 	}
