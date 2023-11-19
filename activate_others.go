@@ -7,9 +7,8 @@ package launchd
 
 import (
 	"fmt"
-	"net"
 )
 
-func listenersWithName(_ string) ([]net.Listener, error) {
+func listenersFdsWithName(_ string) ([]int32, error) {
 	return nil, fmt.Errorf("launchd: only supported on macOS")
 }

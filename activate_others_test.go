@@ -12,7 +12,7 @@ import (
 )
 
 func TestListenersWithName(t *testing.T) {
-	l, err := launchd.ListenersWithName("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+	l, err := launchd.TCPListenersWithName("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(l) != 0 {
 		t.Errorf("expected no listeners on non-darwin platform")
 	}

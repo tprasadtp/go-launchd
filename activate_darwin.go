@@ -6,10 +6,7 @@
 package launchd
 
 import (
-	"errors"
 	"fmt"
-	"net"
-	"os"
 	"slices"
 	"syscall"
 	"unsafe"
@@ -27,7 +24,8 @@ var libc_free_trampoline_addr uintptr
 //nolint:revive,nonamedreturns // ignore
 func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 
-func listenersWithName(name string) ([]net.Listener, error) {
+// listenersFdsWithName returns file descriptors corresponding to the named socket.
+func listenersFdsWithName(name string) ([]int32, error) {
 	var count uint
 	var fd uintptr
 
@@ -89,7 +87,7 @@ func listenersWithName(name string) ([]net.Listener, error) {
 		// This weird unsafe trick is used to silence govet.
 		// fd points to memory not managed by go runtime. Also,
 		// make a copy of the slice, so that memory backing fd
-		// can be de-allocated.
+		// can be de-allocated and used by go code.
 		fdSlice := slices.Clone(
 			unsafe.Slice((*int32)(*(*unsafe.Pointer)(unsafe.Pointer(&fd))), int(count)),
 		)
@@ -100,24 +98,8 @@ func listenersWithName(name string) ([]net.Listener, error) {
 			return nil, fmt.Errorf("launchd: error calling free on *fd: %w", e1)
 		}
 
-		// Iterate over file descriptors and create slice of net.Listener.
-		listeners := make([]net.Listener, 0, count)
-		for _, fd := range fdSlice {
-			if fd != 0 {
-				file := os.NewFile(uintptr(fd), fmt.Sprintf("launchd-activate-socket-%s", name))
-				fl, el := net.FileListener(file)
-				if err != nil {
-					err = errors.Join(err, el)
-					continue
-				}
-				listeners = append(listeners, fl)
-			}
-		}
-
-		if err != nil {
-			return slices.Clip(listeners), fmt.Errorf("launchd: %w", err)
-		}
-		return slices.Clip(listeners), nil
+		// Return file descriptors.
+		return fdSlice, nil
 	case uintptr(syscall.ENOENT):
 		return nil, fmt.Errorf("launchd: no such socket(%s): %w", name, syscall.ENOENT)
 	case uintptr(syscall.ESRCH):
