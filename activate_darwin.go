@@ -24,8 +24,8 @@ var libc_free_trampoline_addr uintptr
 //nolint:revive,nonamedreturns // ignore
 func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 
-// listenersFdsWithName returns file descriptors corresponding to the named socket.
-func listenersFdsWithName(name string) ([]int32, error) {
+// listenerFdsWithName returns file descriptors corresponding to the named socket.
+func listenerFdsWithName(name string) ([]int32, error) {
 	var count uint
 	var fd uintptr
 
@@ -92,6 +92,7 @@ func listenersFdsWithName(name string) ([]int32, error) {
 			unsafe.Slice((*int32)(*(*unsafe.Pointer)(unsafe.Pointer(&fd))), int(count)),
 		)
 
+		// de-allocate *fd.
 		_, _, e1 = syscall_syscall(libc_free_trampoline_addr, fd, 0, 0)
 		if e1 != 0 {
 			// Technically free returns no error this code is not reachable.
@@ -103,8 +104,9 @@ func listenersFdsWithName(name string) ([]int32, error) {
 	case uintptr(syscall.ENOENT):
 		return nil, fmt.Errorf("launchd: no such socket(%s): %w", name, syscall.ENOENT)
 	case uintptr(syscall.ESRCH):
-		// Weirdly, ESRCH is returned when socket is not present in launchd, not ENOENT
-		// as documented. This is most likely a bug in macOS or its documentation.
+		// Weirdly, ESRCH is returned when socket is not present in launchd,
+		// not ENOENT as documented. This is most likely a bug in macOS or its
+		// documentation.
 		//
 		// https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
 		return nil, fmt.Errorf("launchd: socket/process is not managed by launchd: %w", syscall.ESRCH)

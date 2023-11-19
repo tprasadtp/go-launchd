@@ -21,10 +21,10 @@ import (
 // WaitGroup to wait on multiple listeners.
 var wg sync.WaitGroup
 
-func ExampleTCPListenersWithName() {
+func ExampleTCPListeners() {
 	// This example only works on macOS, But is shown on all platforms
 	// for ease of use. This cannot be used for systemd socket activation.
-	listeners, err := launchd.TCPListenersWithName("socket-name-as-in-plist")
+	listeners, err := launchd.TCPListeners("socket-name-as-in-plist")
 	if err != nil {
 		slog.Error("Error getting socket activated listeners", "err", err)
 		// Handle error and close any active listeners.
