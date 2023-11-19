@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -33,7 +34,7 @@ import (
 
 type TestEvent struct {
 	Name    string `json:"name"`
-	Success bool   `json:"success"`
+	Success bool   `json:"success,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
@@ -77,9 +78,8 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 		t.Errorf("%s", err)
 	}
 
-	ctx := context.Background()
 	request, err := http.NewRequestWithContext(
-		ctx,
+		context.Background(),
 		http.MethodPost,
 		os.Getenv("GO_TEST_SERVER_ADDR"),
 		bytes.NewReader(body))
@@ -96,6 +96,105 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 		t.Errorf("%s", err)
 	}
 	defer resp.Body.Close()
+}
+
+// Start a simple http server binding to socket and test if it is reachable.
+func SocketServerPing(t *testing.T, listener net.Listener) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/b39422da-351b-50ad-a7cc-9dea5ae436ea",
+		func(w http.ResponseWriter, r *http.Request) {
+			t.Logf("Socket Server Request: method=%s, url=%s, host=%s", r.Method, r.URL, r.Host)
+			_, _ = w.Write([]byte("OK"))
+			// after receiving request, cancel the context,  which will
+			// trigger server shutdown.
+			cancel()
+		})
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: time.Second * 30,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		t.Logf("Starting server on launchd socket: %s", listener.Addr())
+		if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
+			t.Errorf("Failed to listen on %s: %s", listener.Addr(), err)
+			NotifyTestServer(t, TestEvent{
+				Name:    t.Name(),
+				Success: false,
+				Message: fmt.Sprintf("Failed to listen on %s: %s", listener.Addr(), err),
+			})
+			cancel()
+		}
+	}()
+
+	// Wait for context to be cancelled and shut down the server.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var err error
+		//nolint:gosimple // https://github.com/dominikh/go-tools/issues/503
+		for {
+			select {
+			case <-ctx.Done():
+				t.Logf("Stopping socket server: %s", listener.Addr())
+				err = server.Shutdown(context.Background())
+				if err != nil && !errors.Is(err, http.ErrServerClosed) {
+					t.Errorf("Failed to stop socket server: %s", listener.Addr())
+				}
+				return
+			}
+		}
+	}()
+
+	// Try to send HTTP request to socket server.
+	request, err := http.NewRequestWithContext(context.Background(),
+		http.MethodGet,
+		fmt.Sprintf("http://%s/b39422da-351b-50ad-a7cc-9dea5ae436ea", listener.Addr()), nil,
+	)
+	if err != nil {
+		NotifyTestServer(t, TestEvent{
+			Name:    t.Name(),
+			Message: fmt.Sprintf("Failed to build HTTP request: %s", err),
+		})
+		t.Errorf("Failed to build HTTP request: %s", err)
+		return
+	}
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		NotifyTestServer(t, TestEvent{
+			Name:    t.Name(),
+			Message: fmt.Sprintf("Failed to do HTTP request: %s", err),
+		})
+		t.Errorf("Failed to do HTTP request: %s", err)
+		return
+	}
+	if response != nil {
+		if response.Body != nil {
+			defer response.Body.Close()
+		}
+	}
+
+	if response.StatusCode == http.StatusOK {
+		NotifyTestServer(t, TestEvent{
+			Name:    t.Name(),
+			Success: true,
+		})
+	} else {
+		NotifyTestServer(t, TestEvent{
+			Name:    t.Name(),
+			Message: fmt.Sprintf("Failed to do HTTP request: %s", err),
+		})
+		t.Errorf("Failed to do HTTP request: %s", err)
+	}
+
+	t.Logf("Waiting for socket server to stop...")
+	wg.Wait()
 }
 
 // TestRemote runs tests and pushes the results to GO_TEST_SERVER_ADDR.
@@ -151,8 +250,9 @@ func TestRemote(t *testing.T) {
 					NotifyTestServer(t, event)
 				}
 			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
+				t.Run("SocketServerPing", func(t *testing.T) {
+					SocketServerPing(t, l[0])
+				})
 			}
 		})
 
@@ -172,7 +272,7 @@ func TestRemote(t *testing.T) {
 			}
 		})
 
-		t.Run("TCPMultiple", func(t *testing.T) {
+		t.Run("MultipleSockets", func(t *testing.T) {
 			l, err := launchd.TCPListenersWithName("tcp-multiple")
 			if len(l) > 0 {
 				t.Cleanup(func() {
@@ -201,8 +301,12 @@ func TestRemote(t *testing.T) {
 					NotifyTestServer(t, event)
 				}
 			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
+				for i, item := range l {
+					t.Run(fmt.Sprintf("SocketServerPing-%d", i),
+						func(t *testing.T) {
+							SocketServerPing(t, item)
+						})
+				}
 			}
 		})
 	})
@@ -254,7 +358,6 @@ func TestRemote(t *testing.T) {
 					NotifyTestServer(t, event)
 				}
 			} else {
-				t.Logf("Listener: %+v", l[0])
 				event := TestEvent{Name: t.Name(), Success: true}
 				NotifyTestServer(t, event)
 			}
@@ -488,10 +591,10 @@ func TestListenersWithName(t *testing.T) {
 
 	// Check if test timed out
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		t.Errorf("Test timed out while waiting for remote to publish results")
+		t.Errorf("Test timed out while waiting for remote (remote panic?)")
 	}
 
-	t.Logf("counter.err=%d, ok=%d, logs=%t", counter.err.Load(), counter.ok.Load(), counter.showLogs.Load())
+	t.Logf("errors=%d, ok=%d, logs=%t", counter.err.Load(), counter.ok.Load(), counter.showLogs.Load())
 
 	// Check if Test results.
 	switch {

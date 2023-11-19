@@ -27,7 +27,12 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: test
+      - name: Test (CG_ENABLED=0)
         run: go test -v ./...
         env:
           CG_ENABLED: "0"
+
+      - name: Test (CG_ENABLED=1)
+        run: go test -v ./...
+        env:
+          CG_ENABLED: "1"
