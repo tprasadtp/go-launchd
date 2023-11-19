@@ -1,18 +1,12 @@
 {
+  // Enable golangci-lint with config in the repository.
   "go.lintTool": "golangci-lint",
   "go.lintFlags": [
-    "--fast"
+      "--fast"
   ],
-  "go.buildTags": "docs,completion",
-  "go.coverOnSingleTest": true,
-  "go.coverOnSingleTestFile": true,
-"go.coverMode": "count",
-"files.associations": {
-    ".envrc": "shellscript",
-    "Dockerfile.*": "dockerfile",
-    "poetry.lock": "toml",
-    "*.hujson": "jsonc",
-    "stddef.h": "c",
-    "os_base.h": "c"
-},
+  // Default formatter is gofumpt.
+  "go.formatTool": "gofumpt",
+  // Enable go vulnerability checks.
+  "go.diagnostic.vulncheck": "Imports",
+  "go.testTimeout": "60s",
 }

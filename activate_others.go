@@ -10,8 +10,6 @@ import (
 	"net"
 )
 
-// ListenersWithName is only supported on macOS. On non macOS platforms
-// (including) ios, this will always return error.
-func ListenersWithName(_ string) ([]net.Listener, error) {
+func listenersWithName(_ string) ([]net.Listener, error) {
 	return nil, fmt.Errorf("launchd: only supported on macOS")
 }
