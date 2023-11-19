@@ -41,17 +41,19 @@ type TestEvent struct {
 }
 
 type TemplateData struct {
-	BundleID         string
-	GoTestServerAddr string
-	GoTestBinary     string
-	GoTestName       string
-	GoCoverDir       string
-	StdoutFile       string
-	StderrFile       string
-	TCP              string
-	TCPMultiple      string
-	UDP              string
-	UDPMultiple      string
+	BundleID                 string
+	GoTestServerAddr         string
+	GoTestBinary             string
+	GoTestName               string
+	GoCoverDir               string
+	StdoutFile               string
+	StderrFile               string
+	TCP                      string
+	TCPMultiple              string
+	TCPDualStackSingleSocket string
+	UDP                      string
+	UDPMultiple              string
+	UDPDualStackSingleSocket string
 }
 
 //go:embed internal/testdata/launchd.plist
@@ -320,6 +322,41 @@ func TestRemote(t *testing.T) {
 				}
 			}
 		})
+
+		t.Run("TCPDualStackSingleSocket", func(t *testing.T) {
+			l, err := launchd.TCPListeners("tcp-dualstack-single-socket")
+			if len(l) > 0 {
+				t.Cleanup(func() {
+					for _, item := range l {
+						item.Close()
+					}
+				})
+			}
+			if err != nil || len(l) != 1 {
+				if err != nil {
+					event := TestEvent{
+						Name:    t.Name() + "ErrorCheck",
+						Success: false,
+						Message: fmt.Sprintf("expected no error, got=%s", err),
+					}
+					NotifyTestServer(t, event)
+					t.Errorf("expected=nil, got=%s", err)
+				}
+				if len(l) != 1 {
+					event := TestEvent{
+						Name:    t.Name(),
+						Success: false,
+						Message: fmt.Sprintf("expected listeners=1, got=%d", len(l)),
+					}
+					t.Errorf("expected listeners=1, got=%d", len(l))
+					NotifyTestServer(t, event)
+				}
+			} else {
+				t.Run("TCPSocketServerPing", func(t *testing.T) {
+					TCPSocketServerPing(t, l[0])
+				})
+			}
+		})
 	})
 
 	t.Run("UDPListeners", func(t *testing.T) {
@@ -416,6 +453,39 @@ func TestRemote(t *testing.T) {
 						Message: fmt.Sprintf("expected listeners>1, got=%d", len(l)),
 					}
 					t.Errorf("expected listeners>1, got=%d", len(l))
+					NotifyTestServer(t, event)
+				}
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
+			}
+		})
+		t.Run("UDPDualStackSingleSocket", func(t *testing.T) {
+			l, err := launchd.UDPListeners("udp-dualstack-single-socket")
+			if len(l) > 0 {
+				t.Cleanup(func() {
+					for _, item := range l {
+						item.Close()
+					}
+				})
+			}
+			if err != nil || len(l) != 1 {
+				if err != nil {
+					event := TestEvent{
+						Name:    t.Name() + "ErrorCheck",
+						Success: false,
+						Message: fmt.Sprintf("expected no error, got=%s", err),
+					}
+					NotifyTestServer(t, event)
+					t.Errorf("expected=nil, got=%s", err)
+				}
+				if len(l) != 1 {
+					event := TestEvent{
+						Name:    t.Name(),
+						Success: false,
+						Message: fmt.Sprintf("expected listeners=1, got=%d", len(l)),
+					}
+					t.Errorf("expected listeners=1, got=%d", len(l))
 					NotifyTestServer(t, event)
 				}
 			} else {
@@ -565,21 +635,26 @@ func TestListeners(t *testing.T) {
 
 	plistFileName := filepath.Join(agentsDir, fmt.Sprintf("%s.plist", bundle))
 	data := TemplateData{
-		BundleID:         bundle,
-		GoTestServerAddr: server.URL,
-		GoTestBinary:     os.Args[0],
-		GoTestName:       "^(TestRemote|TestTrampoline)",
-		GoCoverDir:       goCoverDirAbs,
-		StdoutFile:       stdout,
-		StderrFile:       stderr,
-		TCP:              strconv.Itoa(GetFreePort(t)),
-		UDP:              strconv.Itoa(GetFreePort(t)),
-		TCPMultiple:      strconv.Itoa(GetFreePort(t)),
-		UDPMultiple:      strconv.Itoa(GetFreePort(t)),
+		BundleID:                 bundle,
+		GoTestServerAddr:         server.URL,
+		GoTestBinary:             os.Args[0],
+		GoTestName:               "^(TestRemote|TestTrampoline)",
+		GoCoverDir:               goCoverDirAbs,
+		StdoutFile:               stdout,
+		StderrFile:               stderr,
+		TCP:                      strconv.Itoa(GetFreePort(t)),
+		UDP:                      strconv.Itoa(GetFreePort(t)),
+		TCPMultiple:              strconv.Itoa(GetFreePort(t)),
+		UDPMultiple:              strconv.Itoa(GetFreePort(t)),
+		TCPDualStackSingleSocket: strconv.Itoa(GetFreePort(t)),
+		UDPDualStackSingleSocket: strconv.Itoa(GetFreePort(t)),
 	}
 
-	t.Logf("Ports: TCP=%s, UDP=%s, TCPDualStack=%s, UDPDualStack=%s, GoCoverDir=%s",
-		data.UDP, data.TCP, data.UDPMultiple, data.TCPMultiple, data.GoCoverDir)
+	t.Logf("GoCoverDir=%s", data.GoCoverDir)
+	t.Logf("Ports: TCP=%s, TCPDualStack=%s, TCPDualStackSingleSocket=%s",
+		data.TCP, data.TCPMultiple, data.TCPDualStackSingleSocket)
+	t.Logf("Ports: UDP=%s, UDPDualStack=%s, UDPDualStackSingleSocket=%s",
+		data.UDP, data.UDPMultiple, data.UDPDualStackSingleSocket)
 
 	t.Logf("Creating plist file: %s", plistFileName)
 	plistFile, err := os.OpenFile(plistFileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
