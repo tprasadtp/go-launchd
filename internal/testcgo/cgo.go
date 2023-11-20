@@ -12,6 +12,6 @@ package testcgo
 */
 import "C"
 
-func Abs(v int32) int32 {
-	return int32(C.abs(C.int(v)))
+func Abs(v int64) int64 {
+	return int64(C.llabs(C.longlong(v)))
 }
