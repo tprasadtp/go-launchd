@@ -17,8 +17,8 @@
 > **Note**
 >
 > As this module uses `go:cgo_import_dynamic` linker directive, which is not part
-> of go spec as well as [syscall] and [unsafe] packages. So it _may_ break
-> between major go versions and between macOS versions.
+> of go spec as well as [syscall] and [unsafe] packages, it _may_ break between
+> major go versions.
 
 ## Usage
 

@@ -34,7 +34,7 @@ func Files(name string) ([]*os.File, error) {
 	return slices.Clip(files), nil
 }
 
-// Listeners returns slice of [net.Listener] for specified TCP socket.
+// Listeners returns slice of [net.Listener] for specified TCP/stream socket.
 //
 // In case of error building listeners, an appropriate error is returned,
 // along with partial list of listeners. It is responsibility of the caller to
@@ -68,7 +68,7 @@ func Listeners(name string) ([]net.Listener, error) {
 	return slices.Clip(listeners), nil
 }
 
-// PacketListeners returns slice of [net.PacketConn] for specified UDP socket.
+// PacketListeners returns slice of [net.PacketConn] for specified UDP/datagram socket.
 //
 // In case of error building listeners, an appropriate error is returned,
 // along with partial list of listeners. It is responsibility of the caller to
