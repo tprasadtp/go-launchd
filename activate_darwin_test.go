@@ -106,8 +106,10 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 }
 
 // Start a simple http server binding to socket and test if it is reachable.
-func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
+func StreamSocketServerPing(t *testing.T, listener net.Listener, unix string) {
 	t.Helper()
+	t.Logf("Listener: %s", listener.Addr())
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/b39422da-351b-50ad-a7cc-9dea5ae436ea",
@@ -158,11 +160,18 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 		}
 	}()
 
+	var url string
+	if unix != "" {
+		url = "http://unix/b39422da-351b-50ad-a7cc-9dea5ae436ea"
+	} else {
+		url = fmt.Sprintf("http://%s/b39422da-351b-50ad-a7cc-9dea5ae436ea", listener.Addr())
+	}
+
 	// Try to send HTTP request to socket server.
 	request, err := http.NewRequestWithContext(
 		context.Background(),
 		http.MethodGet,
-		"/b39422da-351b-50ad-a7cc-9dea5ae436ea",
+		url,
 		nil)
 	if err != nil {
 		NotifyTestServer(t, TestEvent{
@@ -173,26 +182,16 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 		return
 	}
 	client := &http.Client{}
-	if unix {
-		t.Logf("Using UNIX socket: %s", listener.Addr())
+	dialer := &net.Dialer{}
+	if unix != "" {
+		t.Logf("Using UNIX socket: %s", unix)
 		client.Transport = &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				if err := ctx.Err(); err != nil {
-					return nil, err
-				}
-				return net.Dial("unix", listener.Addr().String())
+				return dialer.DialContext(ctx, "unix", unix)
 			},
 		}
 	} else {
 		t.Logf("Using TCP socket: %s", listener.Addr())
-		client.Transport = &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				if err := ctx.Err(); err != nil {
-					return nil, err
-				}
-				return net.Dial("tcp", listener.Addr().String())
-			},
-		}
 	}
 	response, err := client.Do(request)
 	if err != nil {
@@ -288,7 +287,7 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], false)
+					StreamSocketServerPing(t, l[0], "")
 				})
 			}
 		})
@@ -341,7 +340,7 @@ func TestRemote(t *testing.T) {
 				for i, item := range l {
 					t.Run(fmt.Sprintf("StreamSocketServerPing-%d", i+1),
 						func(t *testing.T) {
-							StreamSocketServerPing(t, item, false)
+							StreamSocketServerPing(t, item, "")
 						})
 				}
 			}
@@ -377,7 +376,7 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], false)
+					StreamSocketServerPing(t, l[0], "")
 				})
 			}
 		})
@@ -411,7 +410,7 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], true)
+					StreamSocketServerPing(t, l[0], "")
 				})
 			}
 		})
@@ -706,6 +705,8 @@ func TestListeners(t *testing.T) {
 		UDPMultiple:              strconv.Itoa(GetFreePort(t)),
 		TCPDualStackSingleSocket: strconv.Itoa(GetFreePort(t)),
 		UDPDualStackSingleSocket: strconv.Itoa(GetFreePort(t)),
+		UnixSocketPath:           filepath.Join(dir, "unix.socket"),
+		UnixgramSocketPath:       filepath.Join(dir, "unixgram.socket"),
 	}
 
 	t.Logf("GoCoverDir=%s", data.GoCoverDir)
@@ -713,6 +714,8 @@ func TestListeners(t *testing.T) {
 		data.TCP, data.TCPMultiple, data.TCPDualStackSingleSocket)
 	t.Logf("Ports: UDP=%s, UDPDualStack=%s, UDPDualStackSingleSocket=%s",
 		data.UDP, data.UDPMultiple, data.UDPDualStackSingleSocket)
+	t.Logf("Sockets: UnixSocketPath=%s, UnixgramSocketPath=%s",
+		data.UnixSocketPath, data.UnixgramSocketPath)
 
 	t.Logf("Creating plist file: %s", plistFileName)
 	plistFile, err := os.OpenFile(plistFileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)

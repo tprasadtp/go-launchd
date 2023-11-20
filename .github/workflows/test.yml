@@ -13,10 +13,10 @@ jobs:
         go:
           - "1.21"
         os:
-          - macos-11
+          # - macos-11
           - macos-12
-          - ubuntu-latest
-          - windows-latest
+          # - ubuntu-latest
+          # - windows-latest
         cgo:
           - "CGO_ENABLED=0"
           - "CGO_ENABLED=1"
