@@ -87,6 +87,7 @@ func ExampleTCPListeners() {
 						slog.Error("Failed to shutdown server",
 							"err", err, "address", l.Addr())
 					}
+					err = l.Close()
 					return
 				}
 			}

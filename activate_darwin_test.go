@@ -106,22 +106,20 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 }
 
 // Start a simple http server binding to socket and test if it is reachable.
-func StreamSocketServerPing(t *testing.T, listener net.Listener, unix string) {
+func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	t.Helper()
 	t.Logf("Listener: %s", listener.Addr())
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/b39422da-351b-50ad-a7cc-9dea5ae436ea",
-		func(w http.ResponseWriter, r *http.Request) {
-			t.Logf("Socket Server Request: method=%s, url=%s, host=%s", r.Method, r.URL, r.Host)
-			_, _ = w.Write([]byte("OK"))
-			// after receiving request, cancel the context,  which will
-			// trigger server shutdown.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("StreamSocketServer, method=%s, url=%s, host=%s", r.Method, r.URL, r.Host)
+		if r.Method == http.MethodDelete {
 			cancel()
-		})
+		}
+	})
+
 	server := &http.Server{
-		Handler:           mux,
+		Handler:           handler,
 		ReadHeaderTimeout: time.Second * 30,
 	}
 
@@ -161,16 +159,16 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix string) {
 	}()
 
 	var url string
-	if unix != "" {
-		url = "http://unix/b39422da-351b-50ad-a7cc-9dea5ae436ea"
+	if unix {
+		url = "http://unix"
 	} else {
-		url = fmt.Sprintf("http://%s/b39422da-351b-50ad-a7cc-9dea5ae436ea", listener.Addr())
+		url = fmt.Sprintf("http://%s", listener.Addr())
 	}
 
 	// Try to send HTTP request to socket server.
 	request, err := http.NewRequestWithContext(
 		context.Background(),
-		http.MethodGet,
+		http.MethodDelete,
 		url,
 		nil)
 	if err != nil {
@@ -179,15 +177,17 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix string) {
 			Message: fmt.Sprintf("Failed to build HTTP request: %s", err),
 		})
 		t.Errorf("Failed to build HTTP request: %s", err)
+		cancel()
+		wg.Wait()
 		return
 	}
 	client := &http.Client{}
-	dialer := &net.Dialer{}
-	if unix != "" {
-		t.Logf("Using UNIX socket: %s", unix)
+	if unix {
+		t.Logf("Using UNIX socket: %s", listener.Addr())
+		dialer := &net.Dialer{}
 		client.Transport = &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				return dialer.DialContext(ctx, "unix", unix)
+				return dialer.DialContext(ctx, "unix", listener.Addr().String())
 			},
 		}
 	} else {
@@ -239,7 +239,7 @@ func TestRemote(t *testing.T) {
 		return v
 	}())
 
-	t.Run("TCPListeners", func(t *testing.T) {
+	t.Run("Listeners", func(t *testing.T) {
 		t.Run("NoSuchSocket", func(t *testing.T) {
 			_, err := launchd.Listeners("z")
 			// As per docs, it should be ENOENT, but it returns ESRCH.
@@ -287,7 +287,7 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], "")
+					StreamSocketServerPing(t, l[0], false)
 				})
 			}
 		})
@@ -340,13 +340,13 @@ func TestRemote(t *testing.T) {
 				for i, item := range l {
 					t.Run(fmt.Sprintf("StreamSocketServerPing-%d", i+1),
 						func(t *testing.T) {
-							StreamSocketServerPing(t, item, "")
+							StreamSocketServerPing(t, item, false)
 						})
 				}
 			}
 		})
 
-		t.Run("TCPDualStackSingleSocket", func(t *testing.T) {
+		t.Run("TCPDualStack-SingleSocket", func(t *testing.T) {
 			l, err := launchd.Listeners("tcp-dualstack-single-socket")
 			if len(l) > 0 {
 				t.Cleanup(func() {
@@ -376,7 +376,7 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], "")
+					StreamSocketServerPing(t, l[0], false)
 				})
 			}
 		})
@@ -410,13 +410,13 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], "")
+					StreamSocketServerPing(t, l[0], true)
 				})
 			}
 		})
 	})
 
-	t.Run("UDPListeners", func(t *testing.T) {
+	t.Run("PacketListeners", func(t *testing.T) {
 		t.Run("NoSuchSocket", func(t *testing.T) {
 			_, err := launchd.PacketListeners("z")
 			// As per docs, it should be ENOENT, but it returns ESRCH.
@@ -517,7 +517,7 @@ func TestRemote(t *testing.T) {
 				NotifyTestServer(t, event)
 			}
 		})
-		t.Run("UDPDualStackSingleSocket", func(t *testing.T) {
+		t.Run("UDPDualStack-SingleSocket", func(t *testing.T) {
 			l, err := launchd.PacketListeners("udp-dualstack-single-socket")
 			if len(l) > 0 {
 				t.Cleanup(func() {
@@ -714,8 +714,8 @@ func TestListeners(t *testing.T) {
 		data.TCP, data.TCPMultiple, data.TCPDualStackSingleSocket)
 	t.Logf("Ports: UDP=%s, UDPDualStack=%s, UDPDualStackSingleSocket=%s",
 		data.UDP, data.UDPMultiple, data.UDPDualStackSingleSocket)
-	t.Logf("Sockets: UnixSocketPath=%s, UnixgramSocketPath=%s",
-		data.UnixSocketPath, data.UnixgramSocketPath)
+	t.Logf("UnixSocketPath=%s", data.UnixSocketPath)
+	t.Logf("UnixgramSocketPath=%s", data.UnixgramSocketPath)
 
 	t.Logf("Creating plist file: %s", plistFileName)
 	plistFile, err := os.OpenFile(plistFileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
