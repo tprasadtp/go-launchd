@@ -8,18 +8,17 @@
 
 ## Socket Activation
 
-- Supports [Launchd Socket Activation][socket-activation]([`launch_activate_socket`][socket-activation])
-without using [cgo].
-- Simple to cross compile from your Linux/Windows machines.
-- Supports both UDP and TCP sockets.
-- Supports both `IPv4` and `IPv6` and `IPv4v6`(single socket listening on both IPv4 and IPV6).
+- Supports [Launchd Socket Activation][socket-activation]
+([`launch_activate_socket`][socket-activation]) without using [cgo].
+- Simple to cross compile from Linux/Windows.
+- Supports `tcp`, `unix`, `udp`,`unixgram` sockets.
+- Supports `IPv4`, `IPv6` and `IPv4v6` sockets.
 
-## How it works
-
-This uses a similar technique as the [crypto/x509 package](https://go-review.googlesource.com/c/go/+/232397) via the `go:cgo_import_dynamic` directive.
-
-As this implementation depends on, linker directives which is not part of go spec,
-[syscall] and [unsafe] packages, it may break between go-releases and between macOS versions.
+> **Note**
+>
+> As this module uses `go:cgo_import_dynamic` linker directive, which is not part
+> of go spec as well as [syscall] and [unsafe] packages. So it _may_ break
+> between major go versions and between macOS versions.
 
 ## Usage
 
