@@ -159,10 +159,11 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	}()
 
 	// Try to send HTTP request to socket server.
-	request, err := http.NewRequestWithContext(context.Background(),
+	request, err := http.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet,
-		fmt.Sprintf("/b39422da-351b-50ad-a7cc-9dea5ae436ea", listener.Addr()), nil,
-	)
+		"/b39422da-351b-50ad-a7cc-9dea5ae436ea",
+		nil)
 	if err != nil {
 		NotifyTestServer(t, TestEvent{
 			Name:    t.Name(),
