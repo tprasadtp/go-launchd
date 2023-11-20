@@ -13,12 +13,6 @@ import (
 
 // Files returns slice of [*os.File] backed by file descriptor(s) for given socket.
 //
-// In case of error building listeners, an appropriate error is returned,
-// along with partial list of listeners. It is responsibility of the caller to
-// close the returned listeners whenever required.
-//
-// Multiple files may be returned when listening on both IPv4 and IPv6.
-//
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if specified socket
 //     is not found.
@@ -34,21 +28,17 @@ func Files(name string) ([]*os.File, error) {
 	for _, fd := range fdSlice {
 		if fd != 0 {
 			files = append(files, os.NewFile(uintptr(fd),
-				fmt.Sprintf("launchd-socket-%s", name)))
+				fmt.Sprintf("launchd://%s", name)))
 		}
 	}
 	return slices.Clip(files), nil
 }
 
-// TCPListeners returns slice of [net.Listener] for specified TCP socket.
+// Listeners returns slice of [net.Listener] for specified TCP socket.
 //
 // In case of error building listeners, an appropriate error is returned,
 // along with partial list of listeners. It is responsibility of the caller to
 // close the returned returned non nil listeners whenever required.
-//
-// Multiple [net.Listener] may be returned when listening on both IPv4 and
-// IPv6. Ensure that your server correctly handles listening on multiple
-// [net.Listener].
 //
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if specified socket
@@ -56,7 +46,7 @@ func Files(name string) ([]*os.File, error) {
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
 //   - [syscall.EINVAL] is returned if name contains null characters.
 //   - [syscall.ENOSYS] is returned on non macOS platforms (including iOS).
-func TCPListeners(name string) ([]net.Listener, error) {
+func Listeners(name string) ([]net.Listener, error) {
 	files, err := Files(name)
 	if err != nil {
 		return nil, err
@@ -78,15 +68,11 @@ func TCPListeners(name string) ([]net.Listener, error) {
 	return slices.Clip(listeners), nil
 }
 
-// UDPListeners returns slice of [net.PacketConn] for specified UDP socket.
+// PacketListeners returns slice of [net.PacketConn] for specified UDP socket.
 //
 // In case of error building listeners, an appropriate error is returned,
 // along with partial list of listeners. It is responsibility of the caller to
 // close the returned non nil listeners whenever required.
-//
-// Multiple [net.PacketConn] may be returned when listening on both IPv4 and
-// IPv6. Ensure that your server correctly handles listening on multiple
-// [net.PacketConn].
 //
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if specified socket
@@ -94,7 +80,7 @@ func TCPListeners(name string) ([]net.Listener, error) {
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
 //   - [syscall.EINVAL] is returned if name contains null characters.
 //   - [syscall.ENOSYS] is returned on non macOS platforms (including iOS).
-func UDPListeners(name string) ([]net.PacketConn, error) {
+func PacketListeners(name string) ([]net.PacketConn, error) {
 	files, err := Files(name)
 	if err != nil {
 		return nil, err
@@ -114,4 +100,14 @@ func UDPListeners(name string) ([]net.PacketConn, error) {
 		return slices.Clip(listeners), fmt.Errorf("launchd: %w", err)
 	}
 	return slices.Clip(listeners), nil
+}
+
+// Deprecated: Use [Listeners].
+func TCPListeners(name string) ([]net.Listener, error) {
+	return Listeners(name)
+}
+
+// Deprecated: Use [PacketListeners].
+func UDPListeners(name string) ([]net.PacketConn, error) {
+	return PacketListeners(name)
 }

@@ -54,6 +54,8 @@ type TemplateData struct {
 	UDP                      string
 	UDPMultiple              string
 	UDPDualStackSingleSocket string
+	UnixSocketPath           string
+	UnixgramSocketPath       string
 }
 
 //go:embed internal/testdata/launchd.plist
@@ -104,7 +106,7 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 }
 
 // Start a simple http server binding to socket and test if it is reachable.
-func TCPSocketServerPing(t *testing.T, listener net.Listener) {
+func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	mux := http.NewServeMux()
@@ -159,7 +161,7 @@ func TCPSocketServerPing(t *testing.T, listener net.Listener) {
 	// Try to send HTTP request to socket server.
 	request, err := http.NewRequestWithContext(context.Background(),
 		http.MethodGet,
-		fmt.Sprintf("http://%s/b39422da-351b-50ad-a7cc-9dea5ae436ea", listener.Addr()), nil,
+		fmt.Sprintf("/b39422da-351b-50ad-a7cc-9dea5ae436ea", listener.Addr()), nil,
 	)
 	if err != nil {
 		NotifyTestServer(t, TestEvent{
@@ -170,6 +172,27 @@ func TCPSocketServerPing(t *testing.T, listener net.Listener) {
 		return
 	}
 	client := &http.Client{}
+	if unix {
+		t.Logf("Using UNIX socket: %s", listener.Addr())
+		client.Transport = &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+				return net.Dial("unix", listener.Addr().String())
+			},
+		}
+	} else {
+		t.Logf("Using TCP socket: %s", listener.Addr())
+		client.Transport = &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+				return net.Dial("tcp", listener.Addr().String())
+			},
+		}
+	}
 	response, err := client.Do(request)
 	if err != nil {
 		NotifyTestServer(t, TestEvent{
@@ -218,7 +241,7 @@ func TestRemote(t *testing.T) {
 
 	t.Run("TCPListeners", func(t *testing.T) {
 		t.Run("NoSuchSocket", func(t *testing.T) {
-			_, err := launchd.TCPListeners("z")
+			_, err := launchd.Listeners("z")
 			// As per docs, it should be ENOENT, but it returns ESRCH.
 			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
 				event := TestEvent{
@@ -235,7 +258,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("SingleSocket", func(t *testing.T) {
-			l, err := launchd.TCPListeners("tcp")
+			l, err := launchd.Listeners("tcp")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -263,14 +286,14 @@ func TestRemote(t *testing.T) {
 					NotifyTestServer(t, event)
 				}
 			} else {
-				t.Run("TCPSocketServerPing", func(t *testing.T) {
-					TCPSocketServerPing(t, l[0])
+				t.Run("StreamSocketServerPing", func(t *testing.T) {
+					StreamSocketServerPing(t, l[0], false)
 				})
 			}
 		})
 
 		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
-			_, err := launchd.TCPListeners("tcp")
+			_, err := launchd.Listeners("tcp")
 			if !errors.Is(err, syscall.EALREADY) {
 				event := TestEvent{
 					Name:    t.Name(),
@@ -286,7 +309,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("MultipleSockets", func(t *testing.T) {
-			l, err := launchd.TCPListeners("tcp-multiple")
+			l, err := launchd.Listeners("tcp-multiple")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -315,16 +338,16 @@ func TestRemote(t *testing.T) {
 				}
 			} else {
 				for i, item := range l {
-					t.Run(fmt.Sprintf("TCPSocketServerPing-%d", i),
+					t.Run(fmt.Sprintf("StreamSocketServerPing-%d", i+1),
 						func(t *testing.T) {
-							TCPSocketServerPing(t, item)
+							StreamSocketServerPing(t, item, false)
 						})
 				}
 			}
 		})
 
 		t.Run("TCPDualStackSingleSocket", func(t *testing.T) {
-			l, err := launchd.TCPListeners("tcp-dualstack-single-socket")
+			l, err := launchd.Listeners("tcp-dualstack-single-socket")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -352,8 +375,42 @@ func TestRemote(t *testing.T) {
 					NotifyTestServer(t, event)
 				}
 			} else {
-				t.Run("TCPSocketServerPing", func(t *testing.T) {
-					TCPSocketServerPing(t, l[0])
+				t.Run("StreamSocketServerPing", func(t *testing.T) {
+					StreamSocketServerPing(t, l[0], false)
+				})
+			}
+		})
+		t.Run("UnixSocket", func(t *testing.T) {
+			l, err := launchd.Listeners("unix")
+			if len(l) > 0 {
+				t.Cleanup(func() {
+					for _, item := range l {
+						item.Close()
+					}
+				})
+			}
+			if err != nil || len(l) != 1 {
+				if err != nil {
+					event := TestEvent{
+						Name:    t.Name() + "ErrorCheck",
+						Success: false,
+						Message: fmt.Sprintf("expected no error, got=%s", err),
+					}
+					NotifyTestServer(t, event)
+					t.Errorf("expected=nil, got=%s", err)
+				}
+				if len(l) != 1 {
+					event := TestEvent{
+						Name:    t.Name(),
+						Success: false,
+						Message: fmt.Sprintf("expected listeners=1, got=%d", len(l)),
+					}
+					t.Errorf("expected listeners=1, got=%d", len(l))
+					NotifyTestServer(t, event)
+				}
+			} else {
+				t.Run("StreamSocketServerPing", func(t *testing.T) {
+					StreamSocketServerPing(t, l[0], true)
 				})
 			}
 		})
@@ -361,7 +418,7 @@ func TestRemote(t *testing.T) {
 
 	t.Run("UDPListeners", func(t *testing.T) {
 		t.Run("NoSuchSocket", func(t *testing.T) {
-			_, err := launchd.UDPListeners("z")
+			_, err := launchd.PacketListeners("z")
 			// As per docs, it should be ENOENT, but it returns ESRCH.
 			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
 				event := TestEvent{
@@ -378,7 +435,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("SingleSocket", func(t *testing.T) {
-			l, err := launchd.UDPListeners("udp")
+			l, err := launchd.PacketListeners("udp")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -412,7 +469,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
-			_, err := launchd.UDPListeners("tcp")
+			_, err := launchd.PacketListeners("tcp")
 			if !errors.Is(err, syscall.EALREADY) {
 				event := TestEvent{
 					Name:    t.Name(),
@@ -428,7 +485,7 @@ func TestRemote(t *testing.T) {
 		})
 
 		t.Run("MultipleSockets", func(t *testing.T) {
-			l, err := launchd.UDPListeners("udp-multiple")
+			l, err := launchd.PacketListeners("udp-multiple")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -461,7 +518,7 @@ func TestRemote(t *testing.T) {
 			}
 		})
 		t.Run("UDPDualStackSingleSocket", func(t *testing.T) {
-			l, err := launchd.UDPListeners("udp-dualstack-single-socket")
+			l, err := launchd.PacketListeners("udp-dualstack-single-socket")
 			if len(l) > 0 {
 				t.Cleanup(func() {
 					for _, item := range l {
@@ -743,7 +800,7 @@ func TestListeners(t *testing.T) {
 }
 
 func TestTCPListenersWithName_NotManagedByLaunchd(t *testing.T) {
-	rv, err := launchd.TCPListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+	rv, err := launchd.Listeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(rv) != 0 {
 		t.Errorf("expected no listeners when process is not manged by launchd")
 	}
@@ -753,7 +810,7 @@ func TestTCPListenersWithName_NotManagedByLaunchd(t *testing.T) {
 }
 
 func TestUDPListenersWithName_NotManagedByLaunchd(t *testing.T) {
-	rv, err := launchd.UDPListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+	rv, err := launchd.PacketListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(rv) != 0 {
 		t.Errorf("expected no listeners when process is not manged by launchd")
 	}

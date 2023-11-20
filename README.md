@@ -11,8 +11,8 @@
 - Supports [Launchd Socket Activation][socket-activation]([`launch_activate_socket`][socket-activation])
 without using [cgo].
 - Simple to cross compile from your Linux/Windows machines.
-- Supports both UDP and TCP sockets.
-- Supports both `IPv4` and `IPv6` and `IPv4v6`(single socket listening on both IPv4 and IPV6).
+- Supports `UDP`, `TCP` sockets.
+- Supports `IPv4`, `IPv6` and `IPv4v6` sockets.
 
 ## How it works
 

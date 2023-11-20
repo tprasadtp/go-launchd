@@ -9,10 +9,12 @@
             <key>GO_TEST_SERVER_ADDR</key>
             <string>{{.GoTestServerAddr}}</string>
         </dict>
+        <!--Run-Test-Binray-->
+        <key>Program</key>
+        <string>{{.GoTestBinary}}</string>
         <key>ProgramArguments</key>
         <array>
-            <!--Run-Remote-Tests -->
-            <string>{{.GoTestBinary}}</string>
+            <!--Run-Only-Remote-Tests -->
             <string>-test.count=1</string>
             <string>-test.run={{.GoTestName}}</string>
             <string>-test.timeout=30s</string>
@@ -25,8 +27,6 @@
         <string>{{.StderrFile}}</string>
         <key>StandardOutPath</key>
         <string>{{.StdoutFile}}</string>
-        <key>ExitTimeOut</key>
-        <integer>60</integer>
         <!--Sockets-->
         <key>Sockets</key>
         <dict>
@@ -39,6 +39,8 @@
                 <string>stream</string>
                 <key>SockFamily</key>
                 <string>IPv4</string>
+                <!-- <key>SockNodeName</key>
+                <string>localhost</string> -->
             </dict>
             <!--udp-->
             <key>udp</key>
@@ -85,6 +87,14 @@
                 <string>dgram</string>
                 <key>SockFamily</key>
                 <string>IPv4v6</string>
+            </dict>
+            <!--unix-stream-socket-->
+            <key>unix</key>
+            <dict>
+                <key>SockPathName</key>
+                <string>{{.UnixSocketPath}}</string>
+                <key>SockPathMode</key>
+                <integer>448</integer>
             </dict>
         </dict>
     </dict>

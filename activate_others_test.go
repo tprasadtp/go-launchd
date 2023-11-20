@@ -15,7 +15,7 @@ import (
 
 func TestListeners(t *testing.T) {
 	t.Run("TCPListeners", func(t *testing.T) {
-		tcpListeners, err := launchd.TCPListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+		tcpListeners, err := launchd.Listeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 		if len(tcpListeners) != 0 {
 			t.Errorf("expected no listeners on non-darwin platform")
 		}
@@ -26,7 +26,7 @@ func TestListeners(t *testing.T) {
 	})
 
 	t.Run("UDPListeners", func(t *testing.T) {
-		udpListeners, err := launchd.UDPListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
+		udpListeners, err := launchd.PacketListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 		if len(udpListeners) != 0 {
 			t.Errorf("expected no listeners on non-darwin platform")
 		}
