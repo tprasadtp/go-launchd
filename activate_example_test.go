@@ -21,7 +21,7 @@ import (
 // WaitGroup to wait on multiple listeners.
 var wg sync.WaitGroup
 
-func ExampleTCPListeners() {
+func ExampleListeners() {
 	// This example only works on macOS, But is shown on all platforms
 	// for ease of use. This cannot be used for systemd socket activation.
 	listeners, err := launchd.Listeners("socket-name-as-in-plist")
@@ -87,7 +87,6 @@ func ExampleTCPListeners() {
 						slog.Error("Failed to shutdown server",
 							"err", err, "address", l.Addr())
 					}
-					err = l.Close()
 					return
 				}
 			}

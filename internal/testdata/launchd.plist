@@ -9,7 +9,7 @@
             <key>GO_TEST_SERVER_ADDR</key>
             <string>{{.GoTestServerAddr}}</string>
         </dict>
-        <!--Run-Test-Binray-->
+        <!--Run-Test-Binary-->
         <key>Program</key>
         <string>{{.GoTestBinary}}</string>
         <key>ProgramArguments</key>
@@ -89,12 +89,24 @@
                 <string>IPv4v6</string>
             </dict>
             <!--unix-stream-socket-->
-            <key>unix</key>
+            <key>unix-stream</key>
             <dict>
                 <key>SockPathName</key>
-                <string>{{.UnixSocketPath}}</string>
+                <string>{{.UnixStreamSocket}}</string>
                 <key>SockPathMode</key>
                 <integer>448</integer>
+                <key>SockType</key>
+                <string>stream</string>
+            </dict>
+            <!--unix-datagram-socket-->
+            <key>unix-datagram</key>
+            <dict>
+                <key>SockPathName</key>
+                <string>{{.UnixDatagramSocket}}</string>
+                <key>SockPathMode</key>
+                <integer>448</integer>
+                <key>SockType</key>
+                <string>dgram</string>
             </dict>
         </dict>
     </dict>
