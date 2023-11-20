@@ -39,8 +39,8 @@
                 <string>stream</string>
                 <key>SockFamily</key>
                 <string>IPv4</string>
-                <!-- <key>SockNodeName</key>
-                <string>localhost</string> -->
+                <key>SockNodeName</key>
+                <string>localhost</string>
             </dict>
             <!--udp-->
             <key>udp</key>
@@ -51,6 +51,8 @@
                 <string>dgram</string>
                 <key>SockFamily</key>
                 <string>IPv4</string>
+                <key>SockNodeName</key>
+                <string>localhost</string>
             </dict>
             <!--tcp-multiple-->
             <key>tcp-multiple</key>
@@ -59,6 +61,8 @@
                 <string>{{.TCPMultiple}}</string>
                 <key>SockType</key>
                 <string>stream</string>
+                <key>SockNodeName</key>
+                <string>localhost</string>
             </dict>
             <!--udp-multiple-->
             <key>udp-multiple</key>
@@ -67,6 +71,8 @@
                 <string>{{.UDPMultiple}}</string>
                 <key>SockType</key>
                 <string>dgram</string>
+                <key>SockNodeName</key>
+                <string>localhost</string>
             </dict>
             <!--tcp-dualstack-single-socket-->
             <key>tcp-dualstack-single-socket</key>
@@ -77,6 +83,8 @@
                 <string>stream</string>
                 <key>SockFamily</key>
                 <string>IPv4v6</string>
+                <key>SockNodeName</key>
+                <string>localhost</string>
             </dict>
             <!--udp-dualstack-single-socket-->
             <key>udp-dualstack-single-socket</key>
@@ -87,6 +95,8 @@
                 <string>dgram</string>
                 <key>SockFamily</key>
                 <string>IPv4v6</string>
+                <key>SockNodeName</key>
+                <string>localhost</string>
             </dict>
             <!--unix-stream-socket-->
             <key>unix-stream</key>

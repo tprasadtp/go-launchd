@@ -11,7 +11,7 @@ import (
 	"slices"
 )
 
-// Files returns slice of [*os.File] backed by file descriptor(s) for given socket.
+// Files returns slice of [*os.File] backed by file descriptors for given socket.
 //
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if specified socket
@@ -28,7 +28,7 @@ func Files(name string) ([]*os.File, error) {
 	for _, fd := range fdSlice {
 		if fd != 0 {
 			files = append(files, os.NewFile(uintptr(fd),
-				fmt.Sprintf("launchd://%s", name)))
+				fmt.Sprintf("launchd-socket://%s", name)))
 		}
 	}
 	return slices.Clip(files), nil
