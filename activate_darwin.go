@@ -7,6 +7,7 @@ package launchd
 
 import (
 	"fmt"
+	"runtime"
 	"slices"
 	"syscall"
 	"unsafe"
@@ -28,11 +29,16 @@ func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 func listenerFdsWithName(name string) ([]int32, error) {
 	var count uint
 	var fd uintptr
+	var fdPinner runtime.Pinner
 
 	cgoName, err := syscall.BytePtrFromString(name)
 	if err != nil {
 		return nil, fmt.Errorf("launchd: invalid socket name(%s): %w", name, err)
 	}
+
+	// Because address of fd is passed to libc, pin it.
+	fdPinner.Pin(&fd)
+	defer fdPinner.Unpin()
 
 	// Call libxpc function, launch_activate_socket.
 	//
