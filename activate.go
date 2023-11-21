@@ -40,6 +40,9 @@ func Files(name string) ([]*os.File, error) {
 // along with partial list of listeners. It is responsibility of the caller to
 // close the returned returned non nil listeners whenever required.
 //
+// Closing returned listeners does not close underlying file descriptor
+// and closing files does not affect the listeners.
+//
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if specified socket
 //     is not found.
@@ -73,6 +76,9 @@ func Listeners(name string) ([]net.Listener, error) {
 // In case of error building listeners, an appropriate error is returned,
 // along with partial list of listeners. It is responsibility of the caller to
 // close the returned non nil listeners whenever required.
+//
+// Closing returned listeners does not close underlying file descriptor
+// and closing files does not affect the listeners.
 //
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if specified socket

@@ -24,14 +24,3 @@ jobs:
         with:
           version: latest
           only-new-issues: true
-
-  labels:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Verify labels.json is valid
-        run: jq -r '.[] | "\(.name) \(.color) \(.description)"' .github/labels.json
