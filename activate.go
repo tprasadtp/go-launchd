@@ -4,8 +4,11 @@
 package launchd
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"os"
+	"slices"
 )
 
 // Files returns slice of [*os.File] backed by file descriptors for given socket.
@@ -41,7 +44,28 @@ func Files(name string) ([]*os.File, error) {
 // This must be called exactly once for a given socket name. Subsequent calls
 // with the same socket name will return [syscall.EALREADY].
 func Listeners(name string) ([]net.Listener, error) {
-	return listeners(name)
+	files, err := Files(name)
+	if err != nil {
+		return nil, err
+	}
+
+	// ESOCKTNOSUPPORT (94) Socket type not supported
+	// EOPNOTSUPP (95)    Operation not supported
+	// EPFNOSUPPORT (96)    Protocol family not supported
+	listeners := make([]net.Listener, 0, len(files))
+	for _, file := range files {
+		l, el := net.FileListener(file)
+		if el != nil {
+			err = errors.Join(err, el)
+		} else {
+			listeners = append(listeners, l)
+		}
+	}
+
+	if err != nil {
+		return slices.Clip(listeners), fmt.Errorf("launchd: %w", err)
+	}
+	return slices.Clip(listeners), nil
 }
 
 // PacketListeners returns slice of [net.PacketConn] for specified UDP/datagram socket.

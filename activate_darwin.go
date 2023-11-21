@@ -12,8 +12,23 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"sync"
 	"syscall"
 	"unsafe"
+)
+
+//go:generate
+const (
+	launchDataTypeDict = iota + 1
+	launchDataTypeArray
+	launchDataTypeFd
+	launchDataTypeInteger
+	launchDataTypeReal
+	launchDataTypeBool
+	launchDataTypeString
+	launchDataTypeOpaque
+	launchDataTypeErrno
+	launchDataTypeMachport
 )
 
 //go:cgo_import_dynamic libc_launch_activate_socket launch_activate_socket "/usr/lib/libSystem.B.dylib"
@@ -24,9 +39,137 @@ var libc_launch_activate_socket_trampoline_addr uintptr
 //nolint:revive,stylecheck // ignore
 var libc_free_trampoline_addr uintptr
 
+//go:cgo_import_dynamic libc_launch_data_new_string launch_data_new_string "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_new_string_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_msg launch_msg "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_msg_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_get_type launch_data_get_type "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_get_type_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_get_errno launch_data_get_errno "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_get_errno_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_alloc launch_data_alloc "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_alloc_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_free launch_data_free "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_free_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_get_string launch_data_get_string "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_get_string_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_dict_lookup launch_data_dict_lookup "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_dict_lookup_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_get_fd launch_data_get_fd "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_get_fd_trampoline_addr uintptr
+
 //go:linkname syscall_syscall syscall.syscall
 //nolint:revive,nonamedreturns // ignore
 func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
+
+var once sync.Once
+var sockets map[string]string
+var mu sync.RWMutex
+
+func socketsMetadata(t string) error {
+	var errno syscall.Errno
+
+	// Build checkInMsg.
+	checkInMsg, _ := syscall.BytePtrFromString("CheckIn")
+
+	var launchMsgString uintptr
+	launchMsgString, _, errno = syscall_syscall(
+		libc_launch_data_new_string_trampoline_addr,
+		uintptr(unsafe.Pointer(checkInMsg)),
+		0, 0)
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling launch_data_new_string: %w", errno)
+	}
+	if launchMsgString == 0 {
+		return fmt.Errorf("launchd(libc): launch_data_new_string returned NULL")
+	}
+
+	// launch_msg
+	var launchMsgResponse uintptr
+	launchMsgResponse, _, errno = syscall_syscall(
+		libc_launch_msg_trampoline_addr,
+		uintptr(launchMsgString),
+		0, 0)
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling launch_msg: %w", errno)
+	}
+	if launchMsgResponse == 0 {
+		return fmt.Errorf("launchd(libc): launch_msg returned NULL")
+	}
+
+	// Check if returned response type is of launchDataTypeErrno.
+	var launchMsgResponseType uintptr
+	launchMsgResponseType, _, errno = syscall_syscall(
+		libc_launch_data_get_type_trampoline_addr,
+		uintptr(launchMsgResponse),
+		0, 0)
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling launch_data_get_type: %w", errno)
+	}
+	if launchMsgResponseType != launchDataTypeErrno {
+		return fmt.Errorf("launchd(libc): launch_msg returned unexpected data type: %d", launchMsgResponseType)
+	}
+
+	// Get error number from launchMsgResponse
+	var launchMsgErrNo uintptr
+	launchMsgErrNo, _, errno = syscall_syscall(
+		libc_launch_data_get_errno_trampoline_addr,
+		uintptr(launchMsgResponse),
+		0, 0)
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling launch_data_get_errno: %w", errno)
+	}
+
+	if launchMsgErrNo != 0 {
+		return fmt.Errorf("launchd(libc): launch_msg returned error: %w", syscall.Errno(launchMsgErrNo))
+	}
+
+	// Lookup Sockets
+	var dictSockets uintptr
+	socketsLookupKey, _ := syscall.BytePtrFromString("Sockets")
+	dictSockets, _, errno = syscall_syscall(
+		libc_launch_data_dict_lookup_trampoline_addr,
+		uintptr(unsafe.Pointer(socketsLookupKey)),
+		0, 0)
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling launch_data_dict_lookup: %w", errno)
+	}
+	if dictSockets == 0 {
+		return fmt.Errorf("launchd(libc): no sockets present in launchd unit")
+	}
+
+	// Iterate over sockets
+	var socketsCount uintptr
+	dictSockets, _, errno = syscall_syscall(
+		libc_launch_data_dict_lookup_trampoline_addr,
+		uintptr(launchMsgResponse),
+		0, 0)
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling launch_data_dict_lookup: %w", errno)
+	}
+	if dictSockets == 0 {
+		return fmt.Errorf("launchd(libc): no sockets present in launchd unit")
+	}
+
+	return nil
+}
 
 // listenerFdsWithName returns file descriptors corresponding to the named socket.
 func listenerFdsWithName(name string) ([]int32, error) {
