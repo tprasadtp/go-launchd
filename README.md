@@ -26,12 +26,14 @@ See [API docs](https://pkg.go.dev/github.com/tprasadtp/go-launchd) for more info
 
 ## Testing
 
-Testing requires macOS and go version 1.21 or later.
+Testing requires macOS and go version 1.21 or later. Older go versions are _not supported_,
+due to use of [`runtime.Pinner`][runtime.Pinner] API, to safely pass Go pointer to libc.
 
 ```
 go test -v ./...
 ```
 
+[runtime.Pinner]: https://pkg.go.dev/runtime#Pinner
 [syscall]: https://pkg.go.dev/syscall
 [unsafe]: https://pkg.go.dev/unsafe
 [cgo]: https://pkg.go.dev/cmd/cgo
