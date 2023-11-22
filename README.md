@@ -35,4 +35,4 @@ go test -v ./...
 [syscall]: https://pkg.go.dev/syscall
 [unsafe]: https://pkg.go.dev/unsafe
 [cgo]: https://pkg.go.dev/cmd/cgo
-[socket-activation]: https://developer.apple.com/documentation/xpc1505523-launch_activate_socket
+[socket-activation]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
