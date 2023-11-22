@@ -151,7 +151,7 @@ func listeners(name string) ([]net.Listener, error) {
 	for _, file := range files {
 		stype, stypeErr := syscall.GetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, syscall.SO_TYPE)
 		if stypeErr != nil {
-			err = errors.Join(err, os.NewSyscallError("getsockopt", err))
+			err = errors.Join(err, os.NewSyscallError("getsockopt", stypeErr))
 			continue
 		}
 
@@ -185,7 +185,7 @@ func packetListeners(name string) ([]net.PacketConn, error) {
 	for _, file := range files {
 		stype, stypeErr := syscall.GetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, syscall.SO_TYPE)
 		if stypeErr != nil {
-			err = errors.Join(err, os.NewSyscallError("getsockopt", err))
+			err = errors.Join(err, os.NewSyscallError("getsockopt", stypeErr))
 			continue
 		}
 
