@@ -133,6 +133,8 @@ func files(name string) ([]*os.File, error) {
 	files := make([]*os.File, 0, len(fdSlice))
 	for _, fd := range fdSlice {
 		if fd != 0 {
+			// FD_CLOEXEC on all file descriptors.
+			syscall.CloseOnExec(int(fd))
 			files = append(files, os.NewFile(uintptr(fd),
 				fmt.Sprintf("launchd-socket://%s", name)))
 		}
