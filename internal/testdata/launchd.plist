@@ -98,6 +98,30 @@
                 <key>SockNodeName</key>
                 <string>localhost</string>
             </dict>
+            <!--tcp-invalid-type-->
+            <key>tcp-invalid-type</key>
+            <dict>
+                <key>SockServiceName</key>
+                <string>{{.TCPInvalidType}}</string>
+                <key>SockType</key>
+                <string>dgram</string>
+                <key>SockFamily</key>
+                <string>IPv4</string>
+                <key>SockNodeName</key>
+                <string>localhost</string>
+            </dict>
+            <!--udp-invalid-type-->
+            <key>udp-invalid-type</key>
+            <dict>
+                <key>SockServiceName</key>
+                <string>{{.UDPInvalidType}}</string>
+                <key>SockType</key>
+                <string>stream</string>
+                <key>SockFamily</key>
+                <string>IPv4</string>
+                <key>SockNodeName</key>
+                <string>localhost</string>
+            </dict>
             <!--unix-stream-socket-->
             <key>unix-stream</key>
             <dict>

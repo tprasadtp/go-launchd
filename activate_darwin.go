@@ -6,7 +6,10 @@
 package launchd
 
 import (
+	"errors"
 	"fmt"
+	"net"
+	"os"
 	"runtime"
 	"slices"
 	"syscall"
@@ -27,24 +30,16 @@ func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 
 // listenerFdsWithName returns file descriptors corresponding to the named socket.
 func listenerFdsWithName(name string) ([]int32, error) {
-	var count uint
-	var fd uintptr
-	var fdPinner runtime.Pinner
-
 	cgoName, err := syscall.BytePtrFromString(name)
 	if err != nil {
 		return nil, fmt.Errorf("launchd: invalid socket name(%s): %w", name, err)
 	}
 
-	// Because address of fd is passed to libc, pin it.
-	fdPinner.Pin(&fd)
-	defer fdPinner.Unpin()
-
-	// Call libxpc function, launch_activate_socket.
+	// Call libc function, launch_activate_socket.
 	//
 	// int launch_activate_socket(const char *name,  int *_Nonnull *_Nullable fd, size_t *count)
 	//
-	// Apple's documentation is wrong. It does not mention *fd can be nullable. However,
+	// Apple's documentation is incomplete, It does not mention *fd can be nullable. However,
 	// It clearly must be nullable as user is expected to call free on it. Here how it works,
 	// You give it a pointer to an uintptr. That uintptr will hold address of fd. Do note that,
 	// memory pointed by uintptr is outside of go heap(and not managed by go runtime), and must
@@ -69,6 +64,13 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	//   - ESRCH, if the caller isn’t a process managed by launchd.
 	//   - EALREADY, if socket has already been activated by the caller.
 	//
+	var fdPinner runtime.Pinner
+	var fd uintptr
+	var count uint
+
+	fdPinner.Pin(&fd)
+	defer fdPinner.Unpin()
+
 	r1, _, e1 := syscall_syscall(
 		libc_launch_activate_socket_trampoline_addr,
 		uintptr(unsafe.Pointer(cgoName)), // socket name to filter by
@@ -101,7 +103,6 @@ func listenerFdsWithName(name string) ([]int32, error) {
 		// de-allocate *fd.
 		_, _, e1 = syscall_syscall(libc_free_trampoline_addr, fd, 0, 0)
 		if e1 != 0 {
-			// Technically free returns no error this code is not reachable.
 			return nil, fmt.Errorf("launchd: error calling free on *fd: %w", e1)
 		}
 
@@ -121,4 +122,88 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	default:
 		return nil, fmt.Errorf("launchd: unknown error code : %w", syscall.Errno(r1))
 	}
+}
+
+// Os specific implementation of [Files].
+func files(name string) ([]*os.File, error) {
+	fdSlice, err := listenerFdsWithName(name)
+	if err != nil {
+		return nil, err
+	}
+	files := make([]*os.File, 0, len(fdSlice))
+	for _, fd := range fdSlice {
+		if fd != 0 {
+			files = append(files, os.NewFile(uintptr(fd),
+				fmt.Sprintf("launchd-socket://%s", name)))
+		}
+	}
+	return slices.Clip(files), nil
+}
+
+// Os specific implementation of [Listeners].
+func listeners(name string) ([]net.Listener, error) {
+	files, err := Files(name)
+	if err != nil {
+		return nil, err
+	}
+
+	listeners := make([]net.Listener, 0, len(files))
+	for _, file := range files {
+		stype, stypeErr := syscall.GetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, syscall.SO_TYPE)
+		if stypeErr != nil {
+			err = errors.Join(err, os.NewSyscallError("getsockopt", err))
+			continue
+		}
+
+		if stype != syscall.SOCK_STREAM {
+			err = errors.Join(err, fmt.Errorf("%s: %w", name, syscall.ESOCKTNOSUPPORT))
+			continue
+		}
+
+		l, el := net.FileListener(file)
+		if el != nil {
+			err = errors.Join(err, el)
+		} else {
+			listeners = append(listeners, l)
+		}
+	}
+
+	if err != nil {
+		return slices.Clip(listeners), fmt.Errorf("launchd: error building listeners: %w", err)
+	}
+	return slices.Clip(listeners), nil
+}
+
+// Os specific implementation of [PacketListeners].
+func packetListeners(name string) ([]net.PacketConn, error) {
+	files, err := Files(name)
+	if err != nil {
+		return nil, err
+	}
+
+	listeners := make([]net.PacketConn, 0, len(files))
+	for _, file := range files {
+		stype, stypeErr := syscall.GetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, syscall.SO_TYPE)
+		if stypeErr != nil {
+			err = errors.Join(err, os.NewSyscallError("getsockopt", err))
+			continue
+		}
+
+		if stype != syscall.SOCK_DGRAM {
+			err = errors.Join(err, fmt.Errorf("%s: %w", name, syscall.ESOCKTNOSUPPORT))
+			continue
+		}
+
+		l, el := net.FilePacketConn(file)
+		if el != nil {
+			err = errors.Join(err, el)
+		} else {
+			listeners = append(listeners, l)
+		}
+	}
+
+	if err != nil {
+		return slices.Clip(listeners), fmt.Errorf("launchd: %w", err)
+	}
+	return slices.Clip(listeners), nil
 }
