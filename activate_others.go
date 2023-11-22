@@ -7,9 +7,22 @@ package launchd
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"syscall"
 )
 
-func listenerFdsWithName(_ string) ([]int32, error) {
+// Os specific implementation of [Files]
+func files(_ string) ([]*os.File, error) {
+	return nil, fmt.Errorf("launchd: only supported on macOS: %w", syscall.ENOSYS)
+}
+
+// Os specific implementation of [Listeners]
+func listeners(_ string) ([]net.Listener, error) {
+	return nil, fmt.Errorf("launchd: only supported on macOS: %w", syscall.ENOSYS)
+}
+
+// Os specific implementation of [PacketListeners]
+func packetListeners(_ string) ([]net.PacketConn, error) {
 	return nil, fmt.Errorf("launchd: only supported on macOS: %w", syscall.ENOSYS)
 }

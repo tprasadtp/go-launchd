@@ -17,9 +17,6 @@ jobs:
           - macos-12
           - ubuntu-latest
           - windows-latest
-        cgo:
-          - "CGO_ENABLED=0"
-          - "CGO_ENABLED=1"
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -42,8 +39,7 @@ jobs:
         # Without '--' in --test.gocoverdir, powershell mangles arguments.
         run: go test -v -cover -count 1 --test.gocoverdir .gocover ./...
         env:
-          # https://docs.github.com/en/actions/learn-github-actions/expressions#about-expressions
-          CGO_ENABLED: ${{ matrix.cgo == 'CGO_ENABLED=0' && '0' || '1' }}
+          CGO_ENABLED: "0"
 
       - name: Coverage Create Profile
         # Do not use '-{flag}={arg}' format, as powershell mangles arguments with dots.

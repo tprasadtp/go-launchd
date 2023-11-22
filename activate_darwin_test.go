@@ -49,9 +49,11 @@ type TemplateData struct {
 	StdoutFile               string
 	StderrFile               string
 	TCP                      string
+	TCPInvalidType           string
 	TCPMultiple              string
 	TCPDualStackSingleSocket string
 	UDP                      string
+	UDPInvalidType           string
 	UDPMultiple              string
 	UDPDualStackSingleSocket string
 	UnixStreamSocket         string
@@ -388,6 +390,23 @@ func TestRemote(t *testing.T) {
 				})
 			}
 		})
+		t.Run("TCPInvalidType", func(t *testing.T) {
+			l, err := launchd.Listeners("tcp-invalid-type")
+			DeferCloseListeners(t, l)
+			if !errors.Is(err, syscall.ESOCKTNOSUPPORT) {
+				event := TestEvent{
+					Name:    t.Name(),
+					Success: false,
+					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err),
+				}
+				NotifyTestServer(t, event)
+				t.Errorf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err)
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
+			}
+		})
+
 		t.Run("UnixSocket", func(t *testing.T) {
 			l, err := launchd.Listeners("unix-stream")
 			DeferCloseListeners(t, l)
@@ -529,6 +548,23 @@ func TestRemote(t *testing.T) {
 					t.Errorf("expected listeners=1, got=%d", len(l))
 					NotifyTestServer(t, event)
 				}
+			} else {
+				event := TestEvent{Name: t.Name(), Success: true}
+				NotifyTestServer(t, event)
+			}
+		})
+
+		t.Run("UDPInvalidType", func(t *testing.T) {
+			l, err := launchd.PacketListeners("udp-invalid-type")
+			DeferClosePacketListeners(t, l)
+			if !errors.Is(err, syscall.ESOCKTNOSUPPORT) {
+				event := TestEvent{
+					Name:    t.Name(),
+					Success: false,
+					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err),
+				}
+				NotifyTestServer(t, event)
+				t.Errorf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err)
 			} else {
 				event := TestEvent{Name: t.Name(), Success: true}
 				NotifyTestServer(t, event)
@@ -712,7 +748,9 @@ func TestListeners(t *testing.T) {
 		StdoutFile:               stdout,
 		StderrFile:               stderr,
 		TCP:                      strconv.Itoa(GetFreePort(t)),
+		TCPInvalidType:           strconv.Itoa(GetFreePort(t)),
 		UDP:                      strconv.Itoa(GetFreePort(t)),
+		UDPInvalidType:           strconv.Itoa(GetFreePort(t)),
 		TCPMultiple:              strconv.Itoa(GetFreePort(t)),
 		UDPMultiple:              strconv.Itoa(GetFreePort(t)),
 		TCPDualStackSingleSocket: strconv.Itoa(GetFreePort(t)),
@@ -722,10 +760,10 @@ func TestListeners(t *testing.T) {
 	}
 
 	t.Logf("GoCoverDir=%s", data.GoCoverDir)
-	t.Logf("Ports: TCP=%s, TCPDualStack=%s, TCPDualStackSingleSocket=%s",
-		data.TCP, data.TCPMultiple, data.TCPDualStackSingleSocket)
-	t.Logf("Ports: UDP=%s, UDPDualStack=%s, UDPDualStackSingleSocket=%s",
-		data.UDP, data.UDPMultiple, data.UDPDualStackSingleSocket)
+	t.Logf("Ports: TCP=%s, TCPDualStack=%s, TCPDualStackSingleSocket=%s TCPInvalidType=%s",
+		data.TCP, data.TCPMultiple, data.TCPDualStackSingleSocket, data.TCPInvalidType)
+	t.Logf("Ports: UDP=%s, UDPDualStack=%s, UDPDualStackSingleSocket=%s, UDPInvalidType=%s",
+		data.UDP, data.UDPMultiple, data.UDPDualStackSingleSocket, data.UDPInvalidType)
 	t.Logf("UnixStreamSocket=%s", data.UnixStreamSocket)
 	t.Logf("UnixDatagramSocket=%s", data.UnixDatagramSocket)
 
