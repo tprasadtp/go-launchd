@@ -36,7 +36,7 @@ Testing requires macOS and go version 1.21 or later.
 
 - Run Tests
 
-    ```bash
+    ```console
     go test -cover --test.gocoverdir .gocover ./...
     ```
 
