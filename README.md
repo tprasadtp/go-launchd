@@ -37,7 +37,7 @@ Testing requires macOS and go version 1.21 or later.
 - Run Tests
 
     ```bash
-    go test -v -cover --test.gocoverdir .gocover ./...
+    go test -cover --test.gocoverdir .gocover ./...
     ```
 
 [syscall]: https://pkg.go.dev/syscall
