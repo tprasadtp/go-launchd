@@ -616,7 +616,7 @@ func TestRemote(t *testing.T) {
 	defer resp.Body.Close()
 }
 
-func TestListeners(t *testing.T) {
+func TestLaunchd(t *testing.T) {
 	counter := struct {
 		ok       atomic.Uint64
 		err      atomic.Uint64
@@ -853,7 +853,7 @@ func TestListeners(t *testing.T) {
 	t.Logf("Remote Stderr:\n%s", string(buf))
 }
 
-func TestTCPListenersWithName_NotManagedByLaunchd(t *testing.T) {
+func TestListeners_NotManagedByLaunchd(t *testing.T) {
 	rv, err := launchd.Listeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(rv) != 0 {
 		t.Errorf("expected no listeners when process is not manged by launchd")
@@ -863,7 +863,7 @@ func TestTCPListenersWithName_NotManagedByLaunchd(t *testing.T) {
 	}
 }
 
-func TestUDPListenersWithName_NotManagedByLaunchd(t *testing.T) {
+func TestPacketListeners_NotManagedByLaunchd(t *testing.T) {
 	rv, err := launchd.PacketListeners("b39422da-351b-50ad-a7cc-9dea5ae436ea")
 	if len(rv) != 0 {
 		t.Errorf("expected no listeners when process is not manged by launchd")

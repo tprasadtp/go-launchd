@@ -28,9 +28,17 @@ See [API docs](https://pkg.go.dev/github.com/tprasadtp/go-launchd) for more info
 
 Testing requires macOS and go version 1.21 or later.
 
-```
-go test -v ./...
-```
+- Create `.gocover` directory to gather coverage data
+
+    ```bash
+    mkdir .gocover
+    ```
+
+- Run Tests
+
+    ```console
+    go test -cover --test.gocoverdir .gocover ./...
+    ```
 
 [syscall]: https://pkg.go.dev/syscall
 [unsafe]: https://pkg.go.dev/unsafe
