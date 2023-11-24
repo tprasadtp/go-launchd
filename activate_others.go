@@ -12,17 +12,17 @@ import (
 	"syscall"
 )
 
-// Os specific implementation of [Files]
+// Os specific implementation of [Files].
 func files(_ string) ([]*os.File, error) {
 	return nil, fmt.Errorf("launchd: only supported on macOS: %w", syscall.ENOSYS)
 }
 
-// Os specific implementation of [Listeners]
+// Os specific implementation of [Listeners].
 func listeners(_ string) ([]net.Listener, error) {
 	return nil, fmt.Errorf("launchd: only supported on macOS: %w", syscall.ENOSYS)
 }
 
-// Os specific implementation of [PacketListeners]
+// Os specific implementation of [PacketListeners].
 func packetListeners(_ string) ([]net.PacketConn, error) {
 	return nil, fmt.Errorf("launchd: only supported on macOS: %w", syscall.ENOSYS)
 }
