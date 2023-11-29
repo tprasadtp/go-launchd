@@ -24,6 +24,11 @@
 
 See [API docs](https://pkg.go.dev/github.com/tprasadtp/go-launchd) for more info and examples.
 
+## See Also
+
+This package only supports launchd socket activation. For systemd socket activation,
+Use [github.com/tprasadtp/go-systemd](https://github.com/tprasadtp/go-systemd).
+
 ## Testing
 
 Testing requires macOS and go version 1.21 or later.

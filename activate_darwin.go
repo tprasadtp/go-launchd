@@ -92,10 +92,10 @@ func listenerFdsWithName(name string) ([]int32, error) {
 			return nil, fmt.Errorf("launchd: no sockets found: %w", syscall.ENOENT)
 		}
 
-		// This weird unsafe trick is used to silence govet.
-		// fd points to memory not managed by go runtime. Also,
-		// make a copy of the slice, so that memory backing fd
-		// can be de-allocated and used by go code.
+		// - Unsafe trick is used to silence govet.
+		// - As *fd points to memory not managed by go runtime, make a copy
+		//   of the slice after building it.
+		// - Ignore any warnings about redundant type conversion.
 		fdSlice := slices.Clone(
 			unsafe.Slice((*int32)(*(*unsafe.Pointer)(unsafe.Pointer(&fd))), int(count)),
 		)
