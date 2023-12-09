@@ -10,7 +10,7 @@
 
 - Supports [Launchd Socket Activation][socket-activation]
 ([`launch_activate_socket`][socket-activation]) without using [cgo].
-- Simple to cross compile from Linux/Windows.
+- Easy cross compilation from non-darwin platforms.
 - Supports `tcp`, `unix`, `udp`,`unixgram` sockets.
 - Supports `IPv4`, `IPv6` and `IPv4v6` sockets.
 
