@@ -1,11 +1,12 @@
 # 🚀 go-launchd
 
-[![Go Reference](https://img.shields.io/badge/go-reference-00758D?logo=go&logoColor=white&labelColor=3a3a3az&labelColor=3a3a3a)](https://pkg.go.dev/github.com/tprasadtp/go-launchd)
-[![go.mod Go version](https://img.shields.io/github/go-mod/go-version/tprasadtp/go-launchd?label=toolchain&logo=go&logoColor=white&color=CE3262&labelColor=3a3a3a)](https://github.com/tprasadtp/go-launchd/blob/master/go.mod)
+[![Go Reference](https://img.shields.io/badge/go-reference-00758D?logo=go&logoColor=white)](https://pkg.go.dev/github.com/tprasadtp/go-launchd)
+[![go.mod Go version](https://img.shields.io/github/go-mod/go-version/tprasadtp/go-launchd?label=toolchain&logo=go&logoColor=white&color=CE3262)](https://github.com/tprasadtp/go-launchd/blob/master/go.mod)
 [![test](https://github.com/tprasadtp/go-launchd/actions/workflows/test.yml/badge.svg)](https://github.com/tprasadtp/go-launchd/actions/workflows/test.yml)
 [![lint](https://github.com/tprasadtp/go-launchd/actions/workflows/lint.yml/badge.svg)](https://github.com/tprasadtp/go-launchd/actions/workflows/lint.yml)
-[![license](https://img.shields.io/github/license/tprasadtp/go-launchd?labelColor=3a3a3a)](https://github.com/tprasadtp/go-launchd/blob/master/LICENSE)
-[![latest version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fproxy.golang.org%2Fgithub.com%2Ftprasadtp%2Fgo-launchd%2F%40latest&query=Version&logo=go&logoColor=white&label=release&labelColor=3a3a3a&color=00758D)](https://github.com/tprasadtp/go-launchd/releases)
+[![license](https://img.shields.io/github/license/tprasadtp/go-launchd)](https://github.com/tprasadtp/go-launchd/blob/master/LICENSE)
+[![latest-version](https://img.shields.io/github/v/tag/tprasadtp/go-launchd?color=7f50a6&label=release&logo=semver&sort=semver)](https://github.com/tprasadtp/go-launchd/releases)
+
 
 ## Socket Activation
 
