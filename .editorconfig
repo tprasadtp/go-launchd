@@ -10,11 +10,6 @@ max_line_length = 80
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# Makefiles and Make Templates
-[{Makefile,GNUMakefile,*.mk}]
-indent_style = tab
-indent_size = 4
-
 # YAML
 [{*.yml,*.yaml}]
 indent_size = 2
