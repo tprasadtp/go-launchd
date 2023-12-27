@@ -13,11 +13,11 @@ import (
 	"runtime"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 )
 
-//go:generate
 const (
 	launchDataTypeDict = iota + 1
 	launchDataTypeArray
@@ -30,6 +30,10 @@ const (
 	launchDataTypeErrno
 	launchDataTypeMachport
 )
+
+// ~/Library/LaunchAgents  Per-user agents provided by the user.
+// /Library/LaunchAgents   Per-user agents provided by the administrator.
+// /Library/LaunchDaemons  System wide daemons provided by the administrator.
 
 //go:cgo_import_dynamic libc_launch_activate_socket launch_activate_socket "/usr/lib/libSystem.B.dylib"
 //nolint:revive,stylecheck // ignore
@@ -71,6 +75,14 @@ var libc_launch_data_get_string_trampoline_addr uintptr
 //nolint:revive,stylecheck // ignore
 var libc_launch_data_dict_lookup_trampoline_addr uintptr
 
+//go:cgo_import_dynamic libc_launch_data_array_get_count launch_data_array_get_count "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_array_get_count_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_launch_data_array_get_index launch_data_array_get_index "/usr/lib/libSystem.B.dylib"
+//nolint:revive,stylecheck // ignore
+var libc_launch_data_array_get_index_trampoline_addr uintptr
+
 //go:cgo_import_dynamic libc_launch_data_get_fd launch_data_get_fd "/usr/lib/libSystem.B.dylib"
 //nolint:revive,stylecheck // ignore
 var libc_launch_data_get_fd_trampoline_addr uintptr
@@ -79,17 +91,27 @@ var libc_launch_data_get_fd_trampoline_addr uintptr
 //nolint:revive,nonamedreturns // ignore
 func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 
+type Socket struct {
+	Name string
+	Type string
+}
+
 var once sync.Once
-var sockets map[string]string
+var socketMap sync.Map
+var err atomic.Value
 var mu sync.RWMutex
 
-func socketsMetadata(t string) error {
+func sockets() (err error) {
 	var errno syscall.Errno
 
-	// Build checkInMsg.
+	// Build checkInMsg and pin it.
+	// This is required as libc might hold references to this go pointer.
+	var checkInMsgPinner runtime.Pinner
 	checkInMsg, _ := syscall.BytePtrFromString("CheckIn")
+	checkInMsgPinner.Pin(&checkInMsg)
+	defer checkInMsgPinner.Unpin()
 
-	var launchMsgString uintptr
+	var launchMsgString uintptr // points to libc allocated memory.
 	launchMsgString, _, errno = syscall_syscall(
 		libc_launch_data_new_string_trampoline_addr,
 		uintptr(unsafe.Pointer(checkInMsg)),
@@ -97,19 +119,34 @@ func socketsMetadata(t string) error {
 	if errno != 0 {
 		return fmt.Errorf("launchd(libc): error calling launch_data_new_string: %w", errno)
 	}
+	// Cleanup - launchMsgString
+	defer func() {
+		_, _, _ = syscall_syscall(
+			libc_launch_data_free_trampoline_addr,
+			launchMsgString,
+			0, 0)
+	}()
+
 	if launchMsgString == 0 {
 		return fmt.Errorf("launchd(libc): launch_data_new_string returned NULL")
 	}
 
 	// launch_msg
-	var launchMsgResponse uintptr
+	var launchMsgResponse uintptr // points to libc allocated memory.
 	launchMsgResponse, _, errno = syscall_syscall(
 		libc_launch_msg_trampoline_addr,
-		uintptr(launchMsgString),
+		launchMsgString,
 		0, 0)
 	if errno != 0 {
 		return fmt.Errorf("launchd(libc): error calling launch_msg: %w", errno)
 	}
+	// Cleanup - launchMsgResponse
+	defer func() {
+		_, _, _ = syscall_syscall(
+			libc_launch_data_free_trampoline_addr,
+			launchMsgResponse,
+			0, 0)
+	}()
 	if launchMsgResponse == 0 {
 		return fmt.Errorf("launchd(libc): launch_msg returned NULL")
 	}
@@ -118,7 +155,7 @@ func socketsMetadata(t string) error {
 	var launchMsgResponseType uintptr
 	launchMsgResponseType, _, errno = syscall_syscall(
 		libc_launch_data_get_type_trampoline_addr,
-		uintptr(launchMsgResponse),
+		launchMsgResponse,
 		0, 0)
 	if errno != 0 {
 		return fmt.Errorf("launchd(libc): error calling launch_data_get_type: %w", errno)
@@ -131,7 +168,7 @@ func socketsMetadata(t string) error {
 	var launchMsgErrNo uintptr
 	launchMsgErrNo, _, errno = syscall_syscall(
 		libc_launch_data_get_errno_trampoline_addr,
-		uintptr(launchMsgResponse),
+		launchMsgResponse,
 		0, 0)
 	if errno != 0 {
 		return fmt.Errorf("launchd(libc): error calling launch_data_get_errno: %w", errno)
@@ -142,30 +179,78 @@ func socketsMetadata(t string) error {
 	}
 
 	// Lookup Sockets
-	var dictSockets uintptr
+	var launchdSockets uintptr
+	var launchdSocketsDataType uintptr
 	socketsLookupKey, _ := syscall.BytePtrFromString("Sockets")
-	dictSockets, _, errno = syscall_syscall(
+	launchdSockets, _, errno = syscall_syscall(
 		libc_launch_data_dict_lookup_trampoline_addr,
 		uintptr(unsafe.Pointer(socketsLookupKey)),
 		0, 0)
 	if errno != 0 {
 		return fmt.Errorf("launchd(libc): error calling launch_data_dict_lookup: %w", errno)
 	}
-	if dictSockets == 0 {
+	if launchdSockets == 0 {
+		return fmt.Errorf("launchd(libc): no sockets present in launchd")
+	}
+
+	// Check if returned data type is a dictionary.
+	launchdSocketsDataType, _, errno = syscall_syscall(
+		libc_launch_data_get_type_trampoline_addr,
+		launchdSockets,
+		0, 0,
+	)
+
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling launch_data_get_type: %w", errno)
+	}
+
+	if launchdSocketsDataType != launchDataTypeDict {
+		return fmt.Errorf("launchd(libc): launch_data_dict_lookup(Sockets) returned unexpected data type: %d", launchdSocketsDataType)
+	}
+
+	// Get number of sockets.
+	var numSockets uintptr
+	numSockets, _, errno = syscall_syscall(
+		libc_launch_data_array_get_count_trampoline_addr,
+		launchdSockets,
+		0, 0)
+	if errno != 0 {
+		return fmt.Errorf("launchd(libc): error calling libc_launch_data_array_get_count: %w", errno)
+	}
+	if numSockets == 0 {
 		return fmt.Errorf("launchd(libc): no sockets present in launchd unit")
 	}
 
 	// Iterate over sockets
-	var socketsCount uintptr
-	dictSockets, _, errno = syscall_syscall(
-		libc_launch_data_dict_lookup_trampoline_addr,
-		uintptr(launchMsgResponse),
-		0, 0)
-	if errno != 0 {
-		return fmt.Errorf("launchd(libc): error calling launch_data_dict_lookup: %w", errno)
-	}
-	if dictSockets == 0 {
-		return fmt.Errorf("launchd(libc): no sockets present in launchd unit")
+	var socketItem uintptr
+	var socketItemDataType uintptr
+	var socketItemType uintptr
+	for i := 0; i < int(numSockets); i++ {
+		socketItem, _, errno = syscall_syscall(
+			libc_launch_data_array_get_index_trampoline_addr,
+			launchdSockets,
+			uintptr(i),
+			0,
+		)
+		if errno != 0 {
+			return fmt.Errorf("launchd(libc): error calling launch_data_array_get_index: %w", errno)
+		}
+
+		socketItemDataType, _, errno = syscall_syscall(
+			libc_launch_data_get_type_trampoline_addr,
+			launchdSockets,
+			uintptr(i),
+			0,
+		)
+
+		if errno != 0 {
+			return fmt.Errorf("launchd(libc): error calling launch_data_get_type: %w", errno)
+		}
+
+		if socketItemDataType != launchDataTypeDict {
+			return fmt.Errorf("launchd(libc): launch_msg returned unexpected data type: %d", socketItemDataType)
+		}
+
 	}
 
 	return nil
