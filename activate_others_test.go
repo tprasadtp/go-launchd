@@ -19,8 +19,11 @@ func TestFiles(t *testing.T) {
 		t.Errorf("expected no files on non-darwin platform")
 	}
 
-	if !errors.Is(err, syscall.ENOSYS) {
-		t.Errorf("expected error=%s, got=%s", syscall.ENOSYS, err)
+	if !errors.Is(err, syscall.ENOTSUP) {
+		t.Errorf("expected error=%s, got=%s", syscall.ENOTSUP, err)
+	}
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("expected error=%s, got=%s", errors.ErrUnsupported, err)
 	}
 }
 
@@ -30,8 +33,11 @@ func TestListeners(t *testing.T) {
 		t.Errorf("expected no listeners on non-darwin platform")
 	}
 
-	if !errors.Is(err, syscall.ENOSYS) {
-		t.Errorf("expected error=%s, got=%s", syscall.ENOSYS, err)
+	if !errors.Is(err, syscall.ENOTSUP) {
+		t.Errorf("expected error=%s, got=%s", syscall.ENOTSUP, err)
+	}
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("expected error=%s, got=%s", errors.ErrUnsupported, err)
 	}
 }
 
@@ -41,8 +47,11 @@ func TestPacketListeners(t *testing.T) {
 		t.Errorf("expected no listeners on non-darwin platform")
 	}
 
-	if !errors.Is(err, syscall.ENOSYS) {
-		t.Errorf("expected error=%s, got=%s", syscall.ENOSYS, err)
+	if !errors.Is(err, syscall.ENOTSUP) {
+		t.Errorf("expected error=%s, got=%s", syscall.ENOTSUP, err)
+	}
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("expected error=%s, got=%s", errors.ErrUnsupported, err)
 	}
 }
 
@@ -52,8 +61,11 @@ func TestTCPListeners(t *testing.T) {
 		t.Errorf("expected no listeners on non-darwin platform")
 	}
 
-	if !errors.Is(err, syscall.ENOSYS) {
-		t.Errorf("expected error=%s, got=%s", syscall.ENOSYS, err)
+	if !errors.Is(err, syscall.ENOTSUP) {
+		t.Errorf("expected error=%s, got=%s", syscall.ENOTSUP, err)
+	}
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("expected error=%s, got=%s", errors.ErrUnsupported, err)
 	}
 }
 
@@ -63,7 +75,10 @@ func TestUDPListeners(t *testing.T) {
 		t.Errorf("expected no listeners on non-darwin platform")
 	}
 
-	if !errors.Is(err, syscall.ENOSYS) {
-		t.Errorf("expected error=%s, got=%s", syscall.ENOSYS, err)
+	if !errors.Is(err, syscall.ENOTSUP) {
+		t.Errorf("expected error=%s, got=%s", syscall.ENOTSUP, err)
+	}
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("expected error=%s, got=%s", errors.ErrUnsupported, err)
 	}
 }
