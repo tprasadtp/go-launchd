@@ -2,16 +2,18 @@
   // Enable golangci-lint with config in the repository.
   "go.lintTool": "golangci-lint",
   "go.lintFlags": [
-    "--fast"
+    "--fast",
+    "--build-tags=darwin"
   ],
-  // Default formatter is gofumpt.
-  "go.formatTool": "gofumpt",
-  // Enable go vulnerability checks.
-  "go.diagnostic.vulncheck": "Imports",
-  "go.testTimeout": "60s",
+  // Use gofumpt for formating.
+  "go.useLanguageServer": true,
   "gopls": {
+    "formatting.gofumpt": true,
     "build.buildFlags": [
       "-tags=darwin"
     ]
-  }
+  },
+  // Enable go vulnerability checks.
+  "go.diagnostic.vulncheck": "Imports",
+  "go.testTimeout": "60s",
 }

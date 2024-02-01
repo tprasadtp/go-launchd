@@ -11,10 +11,12 @@ jobs:
       fail-fast: false
       matrix:
         go:
-          - "1.21"
+          - stable
         os:
           - macos-11
           - macos-12
+          - macos-13
+          - macos-14
           - ubuntu-latest
           - windows-latest
     runs-on: ${{ matrix.os }}
