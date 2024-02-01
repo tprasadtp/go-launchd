@@ -11,7 +11,7 @@
 
 - Supports [Launchd Socket Activation][socket-activation]
 ([`launch_activate_socket`][socket-activation]) _without using_ [cgo].
-- Supports `tcp`, `unix`, `udp`,`unixgram` sockets.
+- Supports `tcp`, `unix`, `udp` and `unixgram` sockets.
 - Supports `IPv4`, `IPv6` and `IPv4v6` sockets.
 
 ## Usage
@@ -30,7 +30,7 @@ Testing requires macOS and go version 1.21 or later.
 - Create `.gocover` directory to gather coverage data
 
     ```bash
-    mkdir .gocover
+    mkdir -p .gocover
     ```
 
 - Run Tests

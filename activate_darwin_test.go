@@ -77,12 +77,12 @@ func TestingCoverDir(t *testing.T) string {
 	}
 
 	var goCoverDir string
-	var gocoverdirFlag = flag.Lookup("test.gocoverdir")
+	gocoverdirFlag := flag.Lookup("test.gocoverdir")
 	if goCoverDir == "" && gocoverdirFlag != nil {
 		goCoverDir = gocoverdirFlag.Value.String()
 	}
 
-	var goCoverDirEnv = strings.TrimSpace(os.Getenv("GOCOVERDIR"))
+	goCoverDirEnv := strings.TrimSpace(os.Getenv("GOCOVERDIR"))
 	if goCoverDir == "" && goCoverDirEnv != "" {
 		goCoverDir = goCoverDirEnv
 	}
