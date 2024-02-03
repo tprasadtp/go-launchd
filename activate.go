@@ -13,7 +13,7 @@ import (
 //   - [syscall.EALREADY] is returned if socket is already activated.
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if socket is not found.
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
-//   - [syscall.EINVAL] is returned if name contains null characters.
+//   - [syscall.EINVAL] is returned if socket name is invalid.
 //   - [syscall.ENOTSUP] is returned on non macOS platforms (including iOS).
 //
 // This must be called exactly once for given socket name. Subsequent calls
@@ -35,7 +35,7 @@ func Files(name string) ([]*os.File, error) {
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if socket is not found.
 //   - [syscall.ESOCKTNOSUPPORT] is returned if socket is of incorrect type.
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
-//   - [syscall.EINVAL] is returned if name contains null characters.
+//   - [syscall.EINVAL] is returned if socket name is invalid.
 //   - [syscall.ENOTSUP] is returned on non macOS platforms (including iOS).
 //
 // This must be called exactly once for a given socket name. Subsequent calls
@@ -57,7 +57,7 @@ func Listeners(name string) ([]net.Listener, error) {
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if socket is not found.
 //   - [syscall.ESOCKTNOSUPPORT] is returned if socket is of incorrect type.
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
-//   - [syscall.EINVAL] is returned if name contains null characters.
+//   - [syscall.EINVAL] is returned if socket name is invalid.
 //   - [syscall.ENOTSUP] is returned on non macOS platforms (including iOS).
 //
 // This must be called exactly once for a given socket name. Subsequent calls

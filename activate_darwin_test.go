@@ -23,7 +23,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -82,18 +81,12 @@ func TestingCoverDir(t *testing.T) string {
 		goCoverDir = gocoverdirFlag.Value.String()
 	}
 
-	goCoverDirEnv := strings.TrimSpace(os.Getenv("GOCOVERDIR"))
-	if goCoverDir == "" && goCoverDirEnv != "" {
-		goCoverDir = goCoverDirEnv
-	}
-
 	// Return empty string
 	if goCoverDir == "" {
 		return ""
 	}
 
 	// Get absolute path for GoCoverDir.
-	// Because launchd unit may run under different working directory.
 	goCoverDirAbs, err := filepath.Abs(goCoverDir)
 	if err != nil {
 		t.Fatalf("Failed to get absolute path of test.gocoverdir(%s):%s",
