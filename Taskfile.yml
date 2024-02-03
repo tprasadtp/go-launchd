@@ -8,8 +8,6 @@ version: "3"
 vars:
   # Go coverage data directory is root Taskfile's directory + '.gocover'.
   GO_COVER_DIR: '{{ joinPath .ROOT_DIR ".gocover" }}'
-  # Go benchmark data directory is root Taskfile's directory + 'benchmark'.
-  GO_BENCH_DIR: '{{ joinPath .ROOT_DIR "benchmarks" }}'
 
 tasks:
   # -----------------------------------------------------------------

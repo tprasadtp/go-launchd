@@ -6,7 +6,7 @@
   },
   {
     "color": "#e11d21",
-    "description": "Bugfix",
+    "description": "BugFix",
     "name": "bug-fix"
   },
   {
@@ -140,14 +140,19 @@
     "name": "ci"
   },
   {
-    "color": "#ceef86",
-    "description": "Dependency updates - GitHub Actions",
-    "name": "dep/actions"
+    "color": "#c14f7e",
+    "description": "Developer/Release Tools",
+    "name": "tools"
   },
   {
-    "color": "#844fba",
+    "color": "#ceef86",
+    "description": "Dependency updates - GitHub Actions",
+    "name": "deps/actions"
+  },
+  {
+    "color": "#00ADD8",
     "description": "Dependency updates - Go",
-    "name": "dep/go"
+    "name": "deps/go"
   },
   {
     "color": "#F8A03D",
