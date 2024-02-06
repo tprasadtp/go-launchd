@@ -10,7 +10,7 @@ updates:
       - "bot/dependabot"
       - "deps/actions"
     commit-message:
-      prefix: "deps(actions):"
+      prefix: "ci(deps):"
     pull-request-branch-name:
       separator: "-"
     schedule:
