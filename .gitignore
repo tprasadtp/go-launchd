@@ -152,7 +152,7 @@ ref/
 .task/
 
 # GoReleaser
-dist.
+dist/
 .dist/
 .goreleaser/
 

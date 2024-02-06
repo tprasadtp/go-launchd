@@ -8,7 +8,6 @@
   // Use gofumpt for formating.
   "go.useLanguageServer": true,
   "gopls": {
-    "formatting.gofumpt": true,
     "build.buildFlags": [
       "-tags=darwin"
     ]
