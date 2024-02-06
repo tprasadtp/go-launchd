@@ -3,6 +3,7 @@
 [![Go Reference](https://img.shields.io/badge/go-reference-00758D?logo=go&logoColor=white)](https://pkg.go.dev/github.com/tprasadtp/go-launchd)
 [![test](https://github.com/tprasadtp/go-launchd/actions/workflows/test.yml/badge.svg)](https://github.com/tprasadtp/go-launchd/actions/workflows/test.yml)
 [![lint](https://github.com/tprasadtp/go-launchd/actions/workflows/lint.yml/badge.svg)](https://github.com/tprasadtp/go-launchd/actions/workflows/lint.yml)
+[![release](https://github.com/tprasadtp/go-launchd/actions/workflows/release.yml/badge.svg)](https://github.com/tprasadtp/go-launchd/actions/workflows/release.yml)
 [![license](https://img.shields.io/github/license/tprasadtp/go-launchd)](https://github.com/tprasadtp/go-launchd/blob/master/LICENSE)
 [![latest-version](https://img.shields.io/github/v/tag/tprasadtp/go-launchd?color=7f50a6&label=release&logo=semver&sort=semver)](https://github.com/tprasadtp/go-launchd/releases)
 
@@ -20,26 +21,16 @@ See [API docs](https://pkg.go.dev/github.com/tprasadtp/go-launchd) for more info
 
 ## See Also
 
-This package only supports launchd socket activation. For systemd socket activation,
-Use [github.com/tprasadtp/go-systemd](https://github.com/tprasadtp/go-systemd).
+For systemd socket activation, Use [`github.com/tprasadtp/go-systemd`][go-systemd].
 
 ## Testing
 
 Testing requires macOS and go version 1.21 or later.
 
-- Create `.gocover` directory to gather coverage data
+```console
+go test -cover ./...
+```
 
-    ```bash
-    mkdir -p .gocover
-    ```
-
-- Run Tests
-
-    ```console
-    go test -cover ./... --test.gocoverdir "$(pwd)/.gocover"
-    ```
-
-[syscall]: https://pkg.go.dev/syscall
-[unsafe]: https://pkg.go.dev/unsafe
 [cgo]: https://pkg.go.dev/cmd/cgo
 [socket-activation]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
+[go-systemd]: https://github.com/tprasadtp/go-systemd
