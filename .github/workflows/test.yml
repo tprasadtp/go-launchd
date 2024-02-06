@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Prasad Tengse
+# SPDX-License-Identifier: MIT
+
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: test
 on:
   push:
@@ -29,26 +33,11 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Create Coverage data directory (Unix)
-        if: runner.os != 'Windows'
-        run: mkdir -p .gocover
+      - name: Install Task
+        run: go install github.com/go-task/task/v3/cmd/task@latest
 
-      - name: Create Coverage data directory (Windows)
-        if: runner.os == 'Windows'
-        run: New-Item -ItemType Directory -Path .gocover
-
-      - name: Test (Unix)
-        if: runner.os != 'Windows'
-        run: go test -v -cover ./... -test.gocoverdir "$(pwd)/.gocover"
-        env:
-          CGO_ENABLED: "0"
-
-      - name: Test (Windows)
-        # Without '--' in --test.gocoverdir, powershell mangles arguments.
-        if: runner.os == 'Windows'
-        run: go test -v --cover ./... --test.gocoverdir "$PWD\.gocover"
-        env:
-          CGO_ENABLED: "0"
+      - name: Test
+        run: task test
 
       - name: Coverage Create Profile
         # Do not use '-{flag}={arg}' format, as powershell mangles arguments with dots.
@@ -57,3 +46,23 @@ jobs:
       - name: Coverage View Profile
         # Do not use '-{flag}={arg}' format, as powershell mangles arguments with dots.
         run: go tool cover -func .gocover/coverage.out
+
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: GoReleaser Snapshot
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: release --clean --fail-fast --snapshot
