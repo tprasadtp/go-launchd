@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: Copyright 2024 Prasad Tengse
 # SPDX-License-Identifier: MIT
-
+#
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: "3"
 
 vars:
-  # Go coverage data directory is user's working directory + '.gocover'.
+  # Go coverage data directory is Root Taskfile's directory + '.gocover'.
   GO_COVER_DIR: '{{ joinPath .ROOT_DIR ".gocover" }}'
 
 tasks:
@@ -23,17 +23,11 @@ tasks:
   # -----------------------------------------------------------------
   internal:mkdir:
     internal: true
-    label: mkdir
     requires:
       vars:
         - DIRECTORY
     status:
-      - >-
-        {{- if .DIRECTORY }}
-          test -d {{ .DIRECTORY|quote }}
-        {{- else }}
-          exit 0
-        {{- end }}
+      - "{{ if .DIRECTORY }}test -d {{ .DIRECTORY|quote }}{{ end }}"
     cmds:
       # Do not use long form flag --parents as it is not supported on macOS.
       - cmd: mkdir -p {{.DIRECTORY|quote}}
@@ -52,18 +46,12 @@ tasks:
   # -----------------------------------------------------------------
   internal:rm-file-glob:
     internal: true
-    label: "rm"
     requires:
       vars:
         - DIRECTORY
         - PATTERN
     status:
-      - >-
-        {{- if .DIRECTORY }}
-          ! test -d {{ .DIRECTORY|quote }}
-        {{- else }}
-          exit 0
-        {{- end }}
+      - "{{ if .DIRECTORY }}! test -d {{ .DIRECTORY|quote }}{{ end }}"
     cmds:
       # Do not use long form flag --parents as it is not supported on macOS.
       - cmd: rm -f {{ joinPath (.DIRECTORY | quote) .PATTERN }}
@@ -74,7 +62,7 @@ tasks:
           - netbsd
           - dragonfly
           - openbsd
-      - cmd: powershell.exe -NonInteractive -NoProfile -NoLogo -Command 'Remove-Item -Force -Path "{{ joinPath .DIRECTORY .PATTERN  }}"'
+      - cmd: powershell.exe -NonInteractive -NoProfile -NoLogo -Command '(Remove-Item -Force -ErrorAction SilentlyContinue -Path "{{ joinPath .DIRECTORY .PATTERN  }}")'
         platforms:
           - windows
   # -----------------------------------------------------------------
@@ -82,17 +70,11 @@ tasks:
   # -----------------------------------------------------------------
   internal:rmdir:
     internal: true
-    label: "rmdir"
     requires:
       vars:
         - DIRECTORY
     status:
-      - >-
-        {{- if .DIRECTORY }}
-          ! test -d {{ .DIRECTORY|quote }}
-        {{- else }}
-          exit 0
-        {{- end }}
+      - "{{ if .DIRECTORY }}! test -d {{ .DIRECTORY|quote }}{{ end }}"
     cmds:
       - cmd: rmdir {{ .DIRECTORY | quote }}
         platforms:
@@ -110,7 +92,8 @@ tasks:
   # -----------------------------------------------------------------
   internal:go:create-coverage-dir:
     internal: true
-    label: go:create-coverage-dir
+    status:
+      - "{{ if .GO_COVER_DIR }}test -d {{ .GO_COVER_DIR|quote }}{{ end }}"
     cmds:
       - task: internal:mkdir
         vars:
@@ -131,12 +114,7 @@ tasks:
   internal:go:clean-coverage-files:
     internal: true
     status:
-      - >-
-        {{- if .GO_COVER_DIR }}
-          ! test -d {{ .GO_COVER_DIR|quote }}
-        {{- else }}
-          exit 0
-        {{- end }}
+      - "{{ if .GO_COVER_DIR }}! test -d {{ .GO_COVER_DIR|quote }}{{ end }}"
     cmds:
       - task: internal:rm-file-glob
         vars:
@@ -159,7 +137,6 @@ tasks:
   # -----------------------------------------------------------------
   internal:go:test:
     internal: true
-    label: "go:test"
     requires:
       vars:
         - GO_TEST_PKG
