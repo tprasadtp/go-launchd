@@ -81,15 +81,20 @@ func TestingCoverDir(t *testing.T) string {
 		goCoverDir = gocoverdirFlag.Value.String()
 	}
 
+	// check env
+	if goCoverDir == "" {
+		goCoverDir = os.Getenv("GOCOVERDIR")
+	}
+
 	// Return empty string
 	if goCoverDir == "" {
 		return ""
 	}
 
-	// Get absolute path for GoCoverDir.
+	// Get absolute path for GoCoverDir
 	goCoverDirAbs, err := filepath.Abs(goCoverDir)
 	if err != nil {
-		t.Fatalf("Failed to get absolute path of test.gocoverdir(%s):%s",
+		t.Fatalf("Failed to get absolute path of gocoverdir(%s):%s",
 			goCoverDir, err)
 	}
 	return goCoverDirAbs
@@ -145,7 +150,7 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	t.Logf("Listener: %s", listener.Addr())
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Logf("StreamSocketServer, method=%s, url=%s, host=%s", r.Method, r.URL, r.Host)
 		if r.Method == http.MethodDelete {
 			cancel()
@@ -250,9 +255,9 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	} else {
 		NotifyTestServer(t, TestEvent{
 			Name:    t.Name(),
-			Message: fmt.Sprintf("Failed to do HTTP request: %s", err),
+			Message: fmt.Sprintf("Failed to do HTTP request: %s", response.Status),
 		})
-		t.Errorf("Failed to do HTTP request: %s", err)
+		t.Errorf("Failed to do HTTP request: %s", response.Status)
 	}
 
 	t.Logf("Waiting for socket server to stop...")
