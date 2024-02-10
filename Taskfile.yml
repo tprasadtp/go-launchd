@@ -5,7 +5,7 @@
 version: "3"
 
 vars:
-  # Go coverage data directory is Root Taskfile's directory + '.gocover'.
+  # Go coverage data directory is root Taskfile's directory + '.gocover'.
   GO_COVER_DIR: '{{ joinPath .ROOT_DIR ".gocover" }}'
 
 tasks:
@@ -29,7 +29,7 @@ tasks:
     status:
       - "{{ if .DIRECTORY }}test -d {{ .DIRECTORY|quote }}{{ end }}"
     cmds:
-      # Do not use long form flag --parents as it is not supported on macOS.
+      # Do not use a long form flag --parents as it is not supported on macOS.
       - cmd: mkdir -p {{.DIRECTORY|quote}}
         platforms:
           - linux
@@ -53,7 +53,6 @@ tasks:
     status:
       - "{{ if .DIRECTORY }}! test -d {{ .DIRECTORY|quote }}{{ end }}"
     cmds:
-      # Do not use long form flag --parents as it is not supported on macOS.
       - cmd: rm -f {{ joinPath (.DIRECTORY | quote) .PATTERN }}
         platforms:
           - linux
@@ -93,7 +92,7 @@ tasks:
   internal:go:create-coverage-dir:
     internal: true
     status:
-      - "{{ if .GO_COVER_DIR }}test -d {{ .GO_COVER_DIR|quote }}{{ end }}"
+       - "{{ if .GO_COVER_DIR }}test -d {{ .GO_COVER_DIR|quote }}{{ end }}"
     cmds:
       - task: internal:mkdir
         vars:
@@ -102,13 +101,13 @@ tasks:
   # Cleanup coverage files before building/testing.
   #
   # This is required to avoid covtool errors when sources change.
-  # Thus this task fingerprints the sources, and only executed
+  # Thus, this task fingerprints the sources, and only executed
   # when relevant source files change.
   # Unlike clean-coverage task, this will not remove coverage directory.
   #
   # Test tasks should use internal:go:clean-coverage-files:pre-build
   # as it avoids duplicate work by nesting two tasks. Otherwise,
-  # internal:rm-file-glob  tasks will be executed multiple times on
+  # internal:rm-file-glob tasks will be executed multiple times on
   # change to go sources or Taskfile.
   # -----------------------------------------------------------------
   internal:go:clean-coverage-files:
@@ -159,7 +158,7 @@ tasks:
       # GO_TEST_FLAG_COVERDIR will be set if GO_COVER_DIR is already set and is
       # an absolute path. This is enforced as --test.coverdir does not deal with relative
       # paths when testing multiple packages or when running trampolines.
-      # See    - https://github.com/golang/go/issues/51430#issuecomment-1344711300
+      # See - https://github.com/golang/go/issues/51430#issuecomment-1344711300
       GO_TEST_FLAG_COVERDIR: >-
         {{- if .GO_COVER_DIR }}
           {{- if osIsAbs .GO_COVER_DIR }}
@@ -167,7 +166,7 @@ tasks:
           {{- end }}
         {{- end }}
       # If user already specified -v/-v=true flag, skip checking variables for debug flags.
-      # Otherwise check if RUNNER_DEBUG or DEBUG are set to truthy value and set GO_TEST_FLAG_VERBOSE
+      # Otherwise, check if RUNNER_DEBUG or DEBUG is set to truthy value and set GO_TEST_FLAG_VERBOSE
       # to -v.
       #
       # Output of this variable MUST be a single line. i.e no newlines.
@@ -195,7 +194,7 @@ tasks:
     aliases:
       - "go:lint"
       - "golangci-lint"
-    cmd: golangci-lint run
+    cmd: golangci-lint run {{.CLI_ARGS}}
   # -----------------------------------------------------------------
   # Test all packages with coverage.
   # -----------------------------------------------------------------
@@ -229,3 +228,18 @@ tasks:
       - task: internal:rmdir
         vars:
           DIRECTORY: '{{ .GO_COVER_DIR }}'
+      - task: internal:rm-file-glob
+        vars:
+          DIRECTORY: '{{ joinPath .ROOT_DIR "dist" }}'
+          PATTERN: "*.json"
+      - task: internal:rm-file-glob
+        vars:
+          DIRECTORY: '{{ joinPath .ROOT_DIR "dist" }}'
+          PATTERN: "*.yml"
+      - task: internal:rm-file-glob
+        vars:
+          DIRECTORY: '{{ joinPath .ROOT_DIR "dist" }}'
+          PATTERN: "*.yaml"
+      - task: internal:rmdir
+        vars:
+          DIRECTORY: '{{ joinPath .ROOT_DIR "dist" }}'
