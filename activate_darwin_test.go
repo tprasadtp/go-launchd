@@ -91,7 +91,7 @@ func TestingCoverDir(t *testing.T) string {
 		return ""
 	}
 
-	// Get absolute path for GoCoverDir
+	// Get an absolute path for GoCoverDir
 	goCoverDirAbs, err := filepath.Abs(goCoverDir)
 	if err != nil {
 		t.Fatalf("Failed to get absolute path of gocoverdir(%s):%s",
