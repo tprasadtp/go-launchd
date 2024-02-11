@@ -24,6 +24,10 @@ var libc_launch_activate_socket_trampoline_addr uintptr
 //nolint:revive,stylecheck // ignore
 var libc_free_trampoline_addr uintptr
 
+// Defined in package [runtime.syscall_syscall], which is linkname to [syscall].
+//
+// [runtime.syscall_syscall]: https://go.googlesource.com/go/+/a10e42f219abb9c5bc4e7d86d9464700a42c7d57/src/runtime/sys_darwin.go#21
+//
 //go:linkname syscall_syscall syscall.syscall
 //nolint:revive,nonamedreturns // ignore
 func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
@@ -37,13 +41,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 
 	// Call libc function, launch_activate_socket.
 	//
-	// int launch_activate_socket(const char *name,  int *_Nonnull *_Nullable fd, size_t *count)
-	//
-	// Apple's documentation is incomplete, It does not mention *fd can be nullable. However,
-	// It clearly must be nullable as user is expected to call free on it. Here how it works,
-	// You give it a pointer to an uintptr. That uintptr will hold address of fd. Do note that,
-	// memory pointed by uintptr is outside of go heap(and not managed by go runtime), and must
-	// be de-allocated via free.
+	// int launch_activate_socket(const char *name, int * _Nonnull *fds, size_t *cnt);
 	//
 	// # Parameters
 	//
@@ -64,21 +62,41 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	//   - ESRCH, if the caller isn’t a process managed by launchd.
 	//   - EALREADY, if socket has already been activated by the caller.
 	//
-	var fdPinner runtime.Pinner
-	var fd uintptr
-	var count uint
+	// See - https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
 
+	var fd uintptr // starting address of slice of fds (int32)
+	var count uint // number of fds
+
+	// Pin go pointers passed to libc code.
+	//
+	// Because we are not using syscall.Syscall, but syscall_syscall directly,
+	// which unlike  does not use "go:uintptrkeepalive" directive, pin them
+	// explicitly.
+
+	var fdPinner runtime.Pinner
+	var countPinner runtime.Pinner
 	fdPinner.Pin(&fd)
-	defer fdPinner.Unpin()
+	countPinner.Pin(&count)
+	defer func() {
+		fdPinner.Unpin()
+		countPinner.Unpin()
+	}()
+
+	// Use syscall_syscall as it does some magic to avoid errors.
+	// using syscall.Syscall will result in invalid args and panic.
+	// Though syscall.syscall_syscall is not exported, it is extensively
+	// used by the [golang.org/x/sys/unix] package and thus is fairly
+	// reliable.
+	//
+	// Refs - https://github.com/golang/go/issues/65355
 
 	r1, _, e1 := syscall_syscall(
 		libc_launch_activate_socket_trampoline_addr,
 		uintptr(unsafe.Pointer(cgoName)), // socket name to filter by
-		uintptr(unsafe.Pointer(&fd)),     // Pointer to *_Nullable fd
-		uintptr(unsafe.Pointer(&count)),  // number of sockets returned
+		uintptr(unsafe.Pointer(&fd)),     // Pointer to *fds
+		uintptr(unsafe.Pointer(&count)),  // number of sockets
 	)
 
-	// Handle syscall error.
 	if e1 != 0 {
 		return nil, fmt.Errorf("launchd: error calling launch_activate_socket: %w", e1)
 	}
@@ -92,10 +110,9 @@ func listenerFdsWithName(name string) ([]int32, error) {
 			return nil, fmt.Errorf("launchd: no sockets found: %w", syscall.ENOENT)
 		}
 
-		// - Unsafe trick is used to silence govet.
 		// - As *fd points to memory not managed by go runtime, make a copy
 		//   of the slice after building it.
-		// - Ignore any warnings about redundant type conversion.
+		// - Unsafe trick is used to silence govet.
 		fdSlice := slices.Clone(
 			unsafe.Slice((*int32)(*(*unsafe.Pointer)(unsafe.Pointer(&fd))), int(count)),
 		)
