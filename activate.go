@@ -14,7 +14,7 @@ import (
 //   - [syscall.ENOENT] or [syscall.ESRCH] is returned if socket is not found.
 //   - [syscall.ESRCH] is returned if calling process is not manged by launchd.
 //   - [syscall.EINVAL] is returned if socket name is invalid.
-//   - [syscall.ENOTSUP] is returned on non macOS platforms (including iOS).
+//   - [syscall.ENOTSUP] is returned on non-macOS platforms (including iOS).
 //
 // This must be called exactly once for given socket name. Subsequent calls
 // with the same socket name will return [syscall.EALREADY].
@@ -26,7 +26,7 @@ func Files(name string) ([]*os.File, error) {
 //
 // In case of error building listeners, an appropriate error is returned,
 // along with a partial list of listeners. It is the responsibility of the caller
-// to close the returned non nil listeners whenever required.
+// to close the returned non-nil listeners whenever required.
 //
 // Closing returned listeners does not close underlying file descriptor
 // and closing files does not affect the listeners.

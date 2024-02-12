@@ -24,9 +24,11 @@ var libc_launch_activate_socket_trampoline_addr uintptr
 //nolint:revive,stylecheck // ignore
 var libc_free_trampoline_addr uintptr
 
-// Defined in package [runtime.syscall_syscall], which is linkname to [syscall].
+// Defined in package [runtime] as [runtime.syscall_syscall], which is
+// pushed to [syscall] as [syscall.syscall_syscall]
 //
 // [runtime.syscall_syscall]: https://go.googlesource.com/go/+/a10e42f219abb9c5bc4e7d86d9464700a42c7d57/src/runtime/sys_darwin.go#21
+// [syscall.syscall_syscall]: https://go.googlesource.com/go/+/a10e42f219abb9c5bc4e7d86d9464700a42c7d57/src/runtime/sys_darwin.go#19
 //
 //go:linkname syscall_syscall syscall.syscall
 //nolint:revive,nonamedreturns // ignore
@@ -64,14 +66,12 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	//
 	// See - https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
 
-	var fd uintptr // starting address of slice of fds (int32)
+	var fd uintptr // starting address of fds slice (int32)
 	var count uint // number of fds
 
-	// Pin go pointers passed to libc code.
-	//
 	// Because we are not using syscall.Syscall, but syscall_syscall directly,
-	// which unlike  does not use "go:uintptrkeepalive" directive, pin them
-	// explicitly.
+	// which unlike syscall.Syscall does not use "go:uintptrkeepalive" directive,
+	// pin go pointers passed to libc code explicitly.
 
 	var fdPinner runtime.Pinner
 	var countPinner runtime.Pinner
@@ -83,7 +83,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	}()
 
 	// Use syscall_syscall as it does some magic to avoid errors.
-	// using syscall.Syscall will result in invalid args and panic.
+	// Using syscall.Syscall will result in invalid args and panic.
 	// Though syscall.syscall_syscall is not exported, it is extensively
 	// used by the [golang.org/x/sys/unix] package and thus is fairly
 	// reliable.
@@ -105,8 +105,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	switch r1 {
 	case 0:
 		if count == 0 {
-			// This code is not reachable according do docs, but here for completeness.
-			// https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
+			// This code is not reachable, according do docs, but here for completeness.
 			return nil, fmt.Errorf("launchd: no sockets found: %w", syscall.ENOENT)
 		}
 
@@ -128,7 +127,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	case uintptr(syscall.ENOENT):
 		return nil, fmt.Errorf("launchd: no such socket(%s): %w", name, syscall.ENOENT)
 	case uintptr(syscall.ESRCH):
-		// Weirdly, ESRCH is returned when socket is not present in launchd,
+		// Weirdly, ESRCH is returned when the socket is not present in launchd,
 		// not ENOENT as documented. This is most likely a bug in macOS or its
 		// documentation.
 		//
