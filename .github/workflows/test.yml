@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Go ${{ matrix.go }}
         uses: actions/setup-go@v5
@@ -48,16 +50,25 @@ jobs:
 
       - name: Test
         run: task --verbose test
+        env:
+          DEBUG: ${{ contains(github.event.head_commit.message, '/test-debug-ci') && '1' || '' }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.os }}-${{ matrix.go }}
           path: .gocover
+          retention-days: 30
 
-      - name: Coverage Create Profile
+      - name: Coverage View Percent
         # - Do not use '-{flag}={arg}' format if arg contains dot '.', or single dashes '-'
         #   for flag with dot '.' (like test.v) as PowerShell mangles it.
         #   See https://github.com/PowerShell/PowerShell/issues/6291#issuecomment-747104988.
+        run: go tool covdata percent -i .gocover
+
+      - name: Coverage Create Profile
+        # Do not use '-{flag}={arg}' format if arg contains dot '.', or single dashes '-'
+        # for flag with dot '.' (like test.v) as PowerShell mangles it.
+        # See - https://github.com/PowerShell/PowerShell/issues/6291#issuecomment-747104988.
         run: go tool covdata textfmt -i .gocover -o .gocover/coverage.out
 
       - name: Coverage View Profile
@@ -65,6 +76,7 @@ jobs:
         #   for flag with dot '.' (like test.v) as PowerShell mangles it.
         #   See https://github.com/PowerShell/PowerShell/issues/6291#issuecomment-747104988.
         run: go tool cover -func .gocover/coverage.out
+
 
   # Generate coverage profile from all coverage data.
   coverage:
@@ -74,6 +86,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -87,10 +101,16 @@ jobs:
           pattern: coverage-*
           merge-multiple: true
 
-      - name: Coverage Create Profile
+      - name: Coverage View Percent
         # - Do not use '-{flag}={arg}' format if arg contains dot '.', or single dashes '-'
         #   for flag with dot '.' (like test.v) as PowerShell mangles it.
         #   See https://github.com/PowerShell/PowerShell/issues/6291#issuecomment-747104988.
+        run: go tool covdata percent -i .gocover
+
+      - name: Coverage Create Profile
+        # Do not use '-{flag}={arg}' format if arg contains dot '.', or single dashes '-'
+        # for flag with dot '.' (like test.v) as PowerShell mangles it.
+        # See - https://github.com/PowerShell/PowerShell/issues/6291#issuecomment-747104988.
         run: go tool covdata textfmt -i .gocover -o .gocover/coverage.out
 
       - name: Coverage View Profile
