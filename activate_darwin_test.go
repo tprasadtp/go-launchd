@@ -116,6 +116,63 @@ func GetFreePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
+// NewOutputLogger Creates [OutputLogger].
+func NewOutputLogger(t *testing.T, prefix string) *OutputLogger {
+	v := &OutputLogger{
+		t:      t,
+		prefix: prefix,
+		buf:    make([]byte, 0, 1024),
+	}
+	if v.prefix == "" {
+		v.prefix = "output"
+	}
+	return v
+}
+
+// OutputLogger writes to t.Log when new lines are found.
+type OutputLogger struct {
+	t      *testing.T
+	buf    []byte
+	prefix string
+}
+
+func (l *OutputLogger) LogOutput(b []byte) {
+	if len(b) == 0 {
+		return
+	}
+	l.t.Helper()
+	l.buf = append(l.buf, b...)
+	var n int
+	for {
+		n = bytes.IndexByte(l.buf, '\n')
+		if n < 0 {
+			break
+		}
+
+		l.t.Logf("(%s) %s", l.prefix, l.buf[:n])
+		if n+1 > len(l.buf) {
+			l.buf = l.buf[0:]
+		} else {
+			l.buf = l.buf[n+1:]
+		}
+	}
+}
+
+func (l *OutputLogger) Logf(format string, args ...any) {
+	l.t.Helper()
+	l.t.Logf(format, args...)
+}
+
+func (l *OutputLogger) Errorf(format string, args ...any) {
+	l.t.Helper()
+	l.t.Errorf(format, args...)
+}
+
+func (l *OutputLogger) Write(b []byte) (int, error) {
+	l.LogOutput(b)
+	return len(b), nil
+}
+
 // Push events to test server.
 func NotifyTestServer(t *testing.T, event TestEvent) {
 	t.Helper()
@@ -852,11 +909,21 @@ func TestLaunchd(t *testing.T) {
 	}
 
 	// Check Log output from launchd unit
-	buf, _ := os.ReadFile(stdout)
-	t.Logf("Remote Stdout:\n%s", string(buf))
+	t.Logf("Output from launch unit: %s", bundle)
 
-	buf, _ = os.ReadFile(stderr)
-	t.Logf("Remote Stderr:\n%s", string(buf))
+	t.Logf("Reading stdout from %s", stdout)
+	stdoutBuf, err := os.ReadFile(stdout)
+	if err != nil {
+		t.Errorf("Failed to read output from stdout: %s", err)
+	}
+	NewOutputLogger(t, "Remote Stdout").LogOutput(stdoutBuf)
+
+	t.Logf("Reading stderr from %s", stderr)
+	stderrBuf, err := os.ReadFile(stderr)
+	if err != nil {
+		t.Errorf("Failed to read output from stderr: %s", err)
+	}
+	NewOutputLogger(t, "Remote Stderr").LogOutput(stderrBuf)
 }
 
 func TestListeners_NotManagedByLaunchd(t *testing.T) {
