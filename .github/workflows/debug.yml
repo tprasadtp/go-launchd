@@ -11,11 +11,23 @@ on:
         description: 'Run the build with tunnel enabled'
         required: false
         default: false
+      macos-version:
+        type: choice
+        description: 'Select macOS version'
+        required: false
+        default: macos-latest
+        options:
+          - macos-latest
+          - macos-11
+          - macos-12
+          - macos-13
+          - macos-14
+
 jobs:
   debug:
     permissions:
       contents: write
-    runs-on: macos-latest
+    runs-on: ${{ inputs.macos-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,7 +37,7 @@ jobs:
         with:
           go-version: stable
 
-      - name: Setup vs code tunnel
+      - name: Setup vscode tunnel
         if: github.event_name == 'workflow_dispatch' && inputs.tunnel
         run: |
           mkdir -p .tunnel
@@ -38,4 +50,4 @@ jobs:
           tar --extract --file=.tunnel/vscode_cli.tar.gz --directory=.tunnel
 
           echo "Run Server"
-          ./.tunnel/code tunnel --accept-server-license-terms --name osx-socket
+          ./.tunnel/code tunnel --accept-server-license-terms --name go-launchd-debug
