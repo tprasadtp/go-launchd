@@ -1,6 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2023 Prasad Tengse
 // SPDX-License-Identifier: MIT
 
+// Package launchd provides pure go bindings for macOS launchd.
+//
+// Supports [launch_activate_socket] without using cgo.
+//
+// [launch_activate_socket]: https://developer.apple.com/documentation/xpc/1505523-launch_activate_socket
 package launchd
 
 import (

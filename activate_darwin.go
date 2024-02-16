@@ -18,11 +18,11 @@ import (
 
 //go:cgo_import_dynamic libc_launch_activate_socket launch_activate_socket "/usr/lib/libSystem.B.dylib"
 //nolint:revive,stylecheck // ignore
-var libc_launch_activate_socket_trampoline_addr uintptr
+var libc_trampoline_launch_activate_socket_addr uintptr
 
 //go:cgo_import_dynamic libc_free free "/usr/lib/libSystem.B.dylib"
 //nolint:revive,stylecheck // ignore
-var libc_free_trampoline_addr uintptr
+var libc_trampoline_free_addr uintptr
 
 // Defined in package [runtime] as [runtime.syscall_syscall], which is
 // pushed to [syscall] as [syscall.syscall_syscall]
@@ -91,7 +91,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	// Refs - https://github.com/golang/go/issues/65355
 
 	r1, _, e1 := syscall_syscall(
-		libc_launch_activate_socket_trampoline_addr,
+		libc_trampoline_launch_activate_socket_addr,
 		uintptr(unsafe.Pointer(cgoName)), // socket name to filter by
 		uintptr(unsafe.Pointer(&fd)),     // Pointer to *fds
 		uintptr(unsafe.Pointer(&count)),  // number of sockets
@@ -117,7 +117,7 @@ func listenerFdsWithName(name string) ([]int32, error) {
 		)
 
 		// de-allocate *fd.
-		_, _, e1 = syscall_syscall(libc_free_trampoline_addr, fd, 0, 0)
+		_, _, e1 = syscall_syscall(libc_trampoline_free_addr, fd, 0, 0)
 		if e1 != 0 {
 			return nil, fmt.Errorf("launchd: error calling free on *fd: %w", e1)
 		}
@@ -149,10 +149,8 @@ func files(name string) ([]*os.File, error) {
 	files := make([]*os.File, 0, len(fdSlice))
 	for _, fd := range fdSlice {
 		if fd != 0 {
-			// FD_CLOEXEC on all file descriptors.
-			syscall.CloseOnExec(int(fd))
 			files = append(files, os.NewFile(uintptr(fd),
-				fmt.Sprintf("launchd-socket://%s", name)))
+				fmt.Sprintf("%s-io.github.tprasadtp.go-launchd.socket", name)))
 		}
 	}
 	return slices.Clip(files), nil
