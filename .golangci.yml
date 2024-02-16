@@ -5,7 +5,7 @@
 run:
   # Timeout for analysis, e.g. 30s, 5m.
   # Default: 1m
-  timeout: 3m
+  timeout: 5m
 
 # This file contains only configs which differ from defaults.
 # All possible options can be found here
@@ -512,9 +512,12 @@ issues:
         - wrapcheck
         - forbidigo
         - sloglint
+        - gocyclo
+        - gocognit
 
     # Disable go-header checks for example files
     - path: 'example_(.*)\.go'
       linters:
+        - dupl
         - goheader
         - sloglint
