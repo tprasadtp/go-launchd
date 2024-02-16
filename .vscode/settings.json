@@ -3,15 +3,7 @@
   "go.lintTool": "golangci-lint",
   "go.lintFlags": [
     "--fast",
-    "--build-tags=darwin"
   ],
-  // Use gofumpt for formating.
-  "go.useLanguageServer": true,
-  "gopls": {
-    "build.buildFlags": [
-      "-tags=darwin"
-    ]
-  },
   // Enable go vulnerability checks.
   "go.diagnostic.vulncheck": "Imports",
   "go.testTimeout": "60s",
