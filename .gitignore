@@ -98,6 +98,7 @@ coverprofile.*
 .gocoverage/
 .go-coverage-data/
 .go-coverage/
+gocover/
 
 # CMake
 cmake-build-*/
@@ -131,7 +132,6 @@ env.*
 .tools/
 .tool/
 .tool-cache/
-.cache/
 .tunnel/
 .code-tunnel/
 .tailscale/
