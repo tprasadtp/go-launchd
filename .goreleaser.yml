@@ -6,7 +6,7 @@ project_name: go-launchd
 
 snapshot:
   # This should be semver otherwise triggers https://github.com/goreleaser/goreleaser/issues/2081
-  name_template: "{{ .Version }}-SNAPSHOT-{{.ShortCommit}}"
+  name_template: "{{ .Version }}-{{.ShortCommit}}-dev"
 
 builds:
   # If true, skip the build.

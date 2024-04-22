@@ -6,11 +6,6 @@ name: debug
 on:
   workflow_dispatch:
     inputs:
-      tunnel:
-        type: boolean
-        description: 'Run the build with tunnel enabled'
-        required: false
-        default: false
       macos-version:
         type: choice
         description: 'Select macOS version'
@@ -18,7 +13,6 @@ on:
         default: macos-latest
         options:
           - macos-latest
-          - macos-11
           - macos-12
           - macos-13
           - macos-14
@@ -31,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -38,7 +34,7 @@ jobs:
           go-version: stable
 
       - name: Setup vscode tunnel
-        if: github.event_name == 'workflow_dispatch' && inputs.tunnel
+        if: github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p .tunnel
           echo "Downloading VSCode CLI"

@@ -50,7 +50,7 @@ jobs:
       - name: Test
         run: task --verbose test
         env:
-          DEBUG: ${{ contains(github.event.head_commit.message, '/test-debug-ci') && '1' || '' }}
+          DEBUG: 1
 
       - name: Coverage View Percent
         run: go tool covdata percent -i .gocover

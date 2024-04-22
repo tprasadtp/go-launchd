@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: Copyright 2023 Prasad Tengse.
 # SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright 2023 Prasad Tengse.
 #
 # yaml-language-server: $schema=https://json.schemastore.org/golangci-lint.json
 run:
@@ -109,9 +109,10 @@ linters-settings:
         # Define here regexp type values.
         # for example:
         license: "(BSD\\-3\\-Clause|GPL\\-3\\.0\\-only|GPL\\-2.0\\-only|AGPL\\-3\\.0\\-only|Apache\\-2\\.0|MIT|MPL\\-2.0)"
-        copyright: "([Cc]opyright\\s+((\\(c\\)|©)\\s+)?[0-9]{4}(.*))"
+        copyright_line: "(\\s*(([Cc]opyright)(\\s*)?((\\(c\\))|©)?\\s*)?((19|20)[0-9]{2})(.*))"
+        copyright_line_multi: "((\\n|(\\r\\n))((\\s*)SPDX\\-FileCopyrightText\\:\\s*(([Cc]opyright)(\\s*)?((\\(c\\))|©)?\\s*)?((19|20)[0-9]{2})(.*)))*"
     template: |-
-      SPDX-FileCopyrightText: {{ copyright }}
+      SPDX-FileCopyrightText: {{ copyright_line }}{{ copyright_line_multi }}
       SPDX-License-Identifier: {{ license }}
 
   gomoddirectives:
