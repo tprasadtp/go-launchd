@@ -36,7 +36,7 @@ func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 
 // listenerFdsWithName returns file descriptors corresponding to the named socket.
 func listenerFdsWithName(name string) ([]int32, error) {
-	cgoName, err := syscall.BytePtrFromString(name)
+	libcName, err := syscall.BytePtrFromString(name)
 	if err != nil {
 		return nil, fmt.Errorf("launchd: invalid socket name(%s): %w", name, err)
 	}
@@ -70,17 +70,14 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	var count uint // number of fds
 
 	// Because we are not using syscall.Syscall, but syscall_syscall directly,
-	// which unlike syscall.Syscall does not use "go:uintptrkeepalive" directive,
-	// pin go pointers passed to libc code explicitly.
+	// which does not use "go:uintptrkeepalive" directive. Pin go pointers passed to
+	// libc code explicitly.
 
-	var fdPinner runtime.Pinner
-	var countPinner runtime.Pinner
-	fdPinner.Pin(&fd)
-	countPinner.Pin(&count)
-	defer func() {
-		fdPinner.Unpin()
-		countPinner.Unpin()
-	}()
+	var pinner runtime.Pinner
+	pinner.Pin(&fd)
+	pinner.Pin(&count)
+	pinner.Pin(&libcName)
+	defer pinner.Unpin()
 
 	// Use syscall_syscall as it does some magic to avoid errors.
 	// Using syscall.Syscall will result in invalid args and panic.
@@ -92,9 +89,9 @@ func listenerFdsWithName(name string) ([]int32, error) {
 
 	r1, _, e1 := syscall_syscall(
 		libc_trampoline_launch_activate_socket_addr,
-		uintptr(unsafe.Pointer(cgoName)), // socket name to filter by
-		uintptr(unsafe.Pointer(&fd)),     // Pointer to *fds
-		uintptr(unsafe.Pointer(&count)),  // number of sockets
+		uintptr(unsafe.Pointer(libcName)), // socket name to filter by
+		uintptr(unsafe.Pointer(&fd)),      // Pointer to *fds
+		uintptr(unsafe.Pointer(&count)),   // number of sockets
 	)
 
 	if e1 != 0 {
