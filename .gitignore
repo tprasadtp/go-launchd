@@ -156,11 +156,8 @@ dist/
 .dist/
 .goreleaser/
 
-# Local Cache
+# Local Build Caches
 .cache/
 
-# Local Build
-build/
-
-# Benchmarks
-benchmarks/
+# Patch files
+*.patch

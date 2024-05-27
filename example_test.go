@@ -53,35 +53,20 @@ func ExampleListeners() {
 		servers = append(servers, &http.Server{
 			Handler:           handler,
 			ReadHeaderTimeout: time.Second * 30,
-			BaseContext: func(_ net.Listener) context.Context {
-				return ctx
-			},
 		})
 	}
 
-	for i := 0; i < len(listeners); i++ {
-		// Run servers in background
-		wg.Add(1)
-		go func(s *http.Server, l net.Listener) {
-			defer wg.Done()
-			slog.Info("Starting server", "address", l.Addr())
-			if err := s.Serve(l); !errors.Is(err, http.ErrServerClosed) {
-				slog.Error("Error", "address", l.Addr(), "err", err)
-				cancel()
-			}
-		}(servers[i], listeners[i])
-
+	for i := range listeners {
 		// Wait for context to cancel and stop server.
 		wg.Add(1)
 		go func(s *http.Server, l net.Listener) {
 			defer wg.Done()
 			var err error
-			//nolint:gosimple // https://github.com/dominikh/go-tools/issues/503
 			for {
 				select {
 				case <-ctx.Done():
 					slog.Info("Stopping server", "address", l.Addr())
-					// In production do it with timeout.
+					// In production do this with a timeout.
 					err = s.Shutdown(context.Background())
 					if err != nil && !errors.Is(err, http.ErrServerClosed) {
 						slog.Error("Failed to shutdown server",
@@ -91,6 +76,19 @@ func ExampleListeners() {
 				}
 			}
 		}(servers[i], listeners[i])
+
+		// Run servers in background if context is not already cancelled.
+		if ctx.Err() == nil {
+			wg.Add(1)
+			go func(s *http.Server, l net.Listener) {
+				defer wg.Done()
+				slog.Info("Starting server", "address", l.Addr())
+				if err := s.Serve(l); !errors.Is(err, http.ErrServerClosed) {
+					slog.Error("Error", "address", l.Addr(), "err", err)
+					cancel()
+				}
+			}(servers[i], listeners[i])
+		}
 	}
 
 	// Wait for all servers to exit.

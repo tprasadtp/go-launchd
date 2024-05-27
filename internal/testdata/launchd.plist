@@ -19,11 +19,7 @@
             <string>-test.run={{.GoTestName}}</string>
             <string>-test.timeout=30s</string>
             <string>-test.v=true</string>
-{{if .GoCoverDir}}
             <string>-test.gocoverdir={{.GoCoverDir}}</string>
-{{else}}
-            <!--cover-flag-not-specified-->
-{{end}}
         </array>
         <key>RunAtLoad</key>
         <true />
@@ -42,6 +38,7 @@
                 <key>SockType</key>
                 <string>stream</string>
                 <key>SockFamily</key>
+                <!--IPv4 ensures only single socket is returned-->
                 <string>IPv4</string>
                 <key>SockNodeName</key>
                 <string>localhost</string>
@@ -54,6 +51,7 @@
                 <key>SockType</key>
                 <string>dgram</string>
                 <key>SockFamily</key>
+                <!--IPv4 ensures only single socket is returned-->
                 <string>IPv4</string>
                 <key>SockNodeName</key>
                 <string>localhost</string>
@@ -110,6 +108,7 @@
                 <key>SockType</key>
                 <string>dgram</string>
                 <key>SockFamily</key>
+                <!--IPv4 ensures only single socket is returned-->
                 <string>IPv4</string>
                 <key>SockNodeName</key>
                 <string>localhost</string>
@@ -122,6 +121,7 @@
                 <key>SockType</key>
                 <string>stream</string>
                 <key>SockFamily</key>
+                <!--IPv4 ensures only single socket is returned-->
                 <string>IPv4</string>
                 <key>SockNodeName</key>
                 <string>localhost</string>

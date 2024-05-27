@@ -34,13 +34,13 @@ import (
 	"github.com/tprasadtp/go-launchd"
 )
 
-type TestEvent struct {
+type testEvent struct {
 	Name    string `json:"name"`
 	Success bool   `json:"success,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
-type TemplateData struct {
+type templateData struct {
 	BundleID                 string
 	GoTestServerAddr         string
 	GoTestBinary             string
@@ -63,18 +63,19 @@ type TemplateData struct {
 //go:embed internal/testdata/launchd.plist
 var plistTemplate string
 
+//nolint:gochecknoglobals
 var (
 	goCoverDirCache  string
 	testCoverDirOnce sync.Once
 )
 
-// TestingCoverDir coverage data directory. Returns empty if coverage is not
+// coverageDir coverage data directory. Returns empty if coverage is not
 // enabled or if test.gocoverdir flag or GOCOVERDIR env variable is not specified.
 // because tests can enable this globally, it is always resolved to absolute path.
 //
-// This uses Undocumented/Unexported test flag: -test.gocoverdir.
+// This uses unexported test flag: -test.gocoverdir.
 // https://github.com/golang/go/issues/51430#issuecomment-1344711300
-func TestingCoverDir(t *testing.T) string {
+func coverageDir(tb testing.TB) string {
 	testCoverDirOnce.Do(func() {
 		// The return value will be empty if test coverage is not enabled.
 		if testing.CoverMode() == "" {
@@ -105,14 +106,14 @@ func TestingCoverDir(t *testing.T) string {
 	// Get absolute path for GoCoverDir.
 	goCoverDirAbs, err := filepath.Abs(goCoverDirCache)
 	if err != nil {
-		t.Fatalf("Failed to get absolute path of test.gocoverdir(%s):%s",
+		tb.Fatalf("Failed to get absolute path of test.gocoverdir(%s):%s",
 			goCoverDirCache, err)
 	}
 	return goCoverDirAbs
 }
 
-// GetFreePort asks the kernel for a free open port that is ready to use.
-func GetFreePort(t *testing.T) int {
+// getFreePort asks the kernel for a free open port that is ready to use.
+func getFreePort(t *testing.T) int {
 	t.Helper()
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
@@ -127,31 +128,26 @@ func GetFreePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-// NewOutputLogger Creates [OutputLogger].
-func NewOutputLogger(t *testing.T, prefix string) *OutputLogger {
-	v := &OutputLogger{
-		t:      t,
+var _ io.Writer = (*writer)(nil)
+
+// NewTestingWriter returns an [io.Writer] which writes to [testing.TB.Log],
+// Optionally with a prefix. Only handles unix new lines.
+func NewTestingWriter(tb testing.TB, prefix string) io.Writer {
+	return &writer{
+		tb:     tb,
 		prefix: prefix,
 		buf:    make([]byte, 0, 1024),
 	}
-	if v.prefix == "" {
-		v.prefix = "output"
-	}
-	return v
 }
 
-// OutputLogger writes to t.Log when new lines are found.
-type OutputLogger struct {
-	t      *testing.T
-	buf    []byte
+// Writes to t.Log when new lines are found.
+type writer struct {
 	prefix string
+	tb     testing.TB
+	buf    []byte
 }
 
-func (l *OutputLogger) LogOutput(b []byte) {
-	if len(b) == 0 {
-		return
-	}
-	l.t.Helper()
+func (l *writer) Write(b []byte) (int, error) {
 	l.buf = append(l.buf, b...)
 	var n int
 	for {
@@ -160,36 +156,33 @@ func (l *OutputLogger) LogOutput(b []byte) {
 			break
 		}
 
-		l.t.Logf("(%s) %s", l.prefix, l.buf[:n])
+		if l.prefix != "" {
+			l.tb.Logf("(%s) %s", l.prefix, l.buf[:n])
+		} else {
+			l.tb.Log(string(l.buf[:n]))
+		}
+
 		if n+1 > len(l.buf) {
 			l.buf = l.buf[0:]
 		} else {
 			l.buf = l.buf[n+1:]
 		}
 	}
-}
-
-func (l *OutputLogger) Logf(format string, args ...any) {
-	l.t.Helper()
-	l.t.Logf(format, args...)
-}
-
-func (l *OutputLogger) Errorf(format string, args ...any) {
-	l.t.Helper()
-	l.t.Errorf(format, args...)
-}
-
-func (l *OutputLogger) Write(b []byte) (int, error) {
-	l.LogOutput(b)
 	return len(b), nil
 }
 
 // Push events to test server.
-func NotifyTestServer(t *testing.T, event TestEvent) {
+func notifyTestServer(t *testing.T, ok bool, msg string) {
 	t.Helper()
+	event := testEvent{
+		Name:    t.Name(),
+		Success: ok,
+		Message: msg,
+	}
 	body, err := json.Marshal(event)
 	if err != nil {
 		t.Errorf("%s", err)
+		return
 	}
 
 	request, err := http.NewRequestWithContext(
@@ -199,6 +192,7 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 		bytes.NewReader(body))
 	if err != nil {
 		t.Errorf("%s", err)
+		return
 	}
 
 	client := &http.Client{
@@ -208,12 +202,13 @@ func NotifyTestServer(t *testing.T, event TestEvent) {
 	resp, err := client.Do(request)
 	if err != nil {
 		t.Errorf("%s", err)
+		return
 	}
 	defer resp.Body.Close()
 }
 
 // Start a simple http server binding to socket and test if it is reachable.
-func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
+func streamServerPing(t *testing.T, listener net.Listener) {
 	t.Helper()
 	t.Logf("Listener: %s", listener.Addr())
 
@@ -230,28 +225,24 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 		ReadHeaderTimeout: time.Second * 30,
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var w sync.WaitGroup
+	w.Add(1)
 	go func() {
-		defer wg.Done()
+		defer w.Done()
 		t.Logf("Starting server on launchd socket: %s", listener.Addr())
 		if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
-			t.Errorf("Failed to listen on %s: %s", listener.Addr(), err)
-			NotifyTestServer(t, TestEvent{
-				Name:    t.Name(),
-				Success: false,
-				Message: fmt.Sprintf("Failed to listen on %s: %s", listener.Addr(), err),
-			})
+			msg := fmt.Sprintf("Failed to listen on %s: %s", listener.Addr(), err)
+			t.Error(msg)
+			notifyTestServer(t, false, msg)
 			cancel()
 		}
 	}()
 
 	// Wait for context to be cancelled and shut down the server.
-	wg.Add(1)
+	w.Add(1)
 	go func() {
-		defer wg.Done()
+		defer w.Done()
 		var err error
-		//nolint:gosimple // https://github.com/dominikh/go-tools/issues/503
 		for {
 			select {
 			case <-ctx.Done():
@@ -266,7 +257,9 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	}()
 
 	var url string
-	if unix {
+	_, isUnixListener := listener.(*net.UnixListener)
+
+	if isUnixListener {
 		url = "http://unix"
 	} else {
 		url = fmt.Sprintf("http://%s", listener.Addr())
@@ -279,17 +272,15 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 		url,
 		nil)
 	if err != nil {
-		NotifyTestServer(t, TestEvent{
-			Name:    t.Name(),
-			Message: fmt.Sprintf("Failed to build HTTP request: %s", err),
-		})
-		t.Errorf("Failed to build HTTP request: %s", err)
+		msg := fmt.Sprintf("Failed to build HTTP request: %s", err)
+		notifyTestServer(t, false, msg)
+		t.Error(msg)
 		cancel()
-		wg.Wait()
+		w.Wait()
 		return
 	}
 	client := &http.Client{}
-	if unix {
+	if isUnixListener {
 		t.Logf("Using UNIX socket: %s", listener.Addr())
 		dialer := &net.Dialer{}
 		client.Transport = &http.Transport{
@@ -302,11 +293,9 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		NotifyTestServer(t, TestEvent{
-			Name:    t.Name(),
-			Message: fmt.Sprintf("Failed to do HTTP request: %s", err),
-		})
-		t.Errorf("Failed to do HTTP request: %s", err)
+		msg := fmt.Sprintf("Failed to do HTTP request: %s", err)
+		t.Errorf(msg)
+		notifyTestServer(t, false, msg)
 		return
 	}
 	if response != nil {
@@ -316,24 +305,19 @@ func StreamSocketServerPing(t *testing.T, listener net.Listener, unix bool) {
 	}
 
 	if response.StatusCode == http.StatusOK {
-		NotifyTestServer(t, TestEvent{
-			Name:    t.Name(),
-			Success: true,
-		})
+		notifyTestServer(t, true, "")
 	} else {
-		NotifyTestServer(t, TestEvent{
-			Name:    t.Name(),
-			Message: fmt.Sprintf("Failed to do HTTP request: %s", response.Status),
-		})
-		t.Errorf("Failed to do HTTP request: %s", response.Status)
+		msg := fmt.Sprintf("Failed to do HTTP request: %s", response.Status)
+		t.Error(msg)
+		notifyTestServer(t, true, "")
 	}
 
 	t.Logf("Waiting for socket server to stop...")
-	wg.Wait()
+	w.Wait()
 }
 
-// DeferCloseListeners.
-func DeferCloseListeners(t *testing.T, listeners []net.Listener) {
+// cleanupNetListeners.
+func cleanupNetListeners(t *testing.T, listeners []net.Listener) {
 	t.Helper()
 	if len(listeners) > 0 {
 		t.Cleanup(func() {
@@ -345,8 +329,8 @@ func DeferCloseListeners(t *testing.T, listeners []net.Listener) {
 	}
 }
 
-// DeferClosePacketListeners.
-func DeferClosePacketListeners(t *testing.T, listeners []net.PacketConn) {
+// cleanupPacketListeners.
+func cleanupPacketListeners(t *testing.T, listeners []net.PacketConn) {
 	t.Helper()
 	if len(listeners) > 0 {
 		t.Cleanup(func() {
@@ -360,354 +344,169 @@ func DeferClosePacketListeners(t *testing.T, listeners []net.PacketConn) {
 
 // TestRemote runs tests and pushes the results to GO_TEST_SERVER_ADDR.
 func TestRemote(t *testing.T) {
-	if _, ok := os.LookupEnv("GO_TEST_SERVER_ADDR"); !ok {
+	if v, ok := os.LookupEnv("GO_TEST_SERVER_ADDR"); !ok {
 		t.SkipNow()
+	} else {
+		t.Logf("GO_TEST_SERVER_ADDR=%s", v)
 	}
 
-	t.Logf("Getwd:%s", func() string {
-		v, err := os.Getwd()
-		if err != nil {
-			return err.Error()
-		}
-		return v
-	}())
-
-	t.Logf("GOCOVERDIR=%s", TestingCoverDir(t))
+	t.Logf("GOCOVERDIR=%s", coverageDir(t))
 	t.Logf("Args=%s", os.Args)
 
-	t.Run("Listeners", func(t *testing.T) {
-		t.Run("NoSuchSocket", func(t *testing.T) {
-			_, err := launchd.Listeners("z")
-			// As per docs, it should be ENOENT, but it returns ESRCH.
-			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
-				event := TestEvent{
-					Name:    t.Name(),
-					Success: false,
-					Message: fmt.Sprintf("expected=%s, got=%s", syscall.ENOENT, err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected=%s, got=%s", syscall.ENOENT, err)
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
+	tt := []struct {
+		name   string
+		socket string
+		errs   []error
+		count  int
+		dgram  bool
+	}{
+		{
+			name:   "TCP-NoSuchSocket",
+			socket: "5bf300ce-6993-4fd5-bfa9-bc1c9e49f996",
+			errs:   []error{syscall.ENOENT, syscall.ESRCH},
+		},
+		{
+			name:   "TCP-SingleSocket",
+			socket: "tcp",
+			count:  1,
+		},
+		{
+			name:   "TCP-ActivateMultipleTimesMustError",
+			socket: "tcp",
+			errs:   []error{syscall.EALREADY},
+		},
+		{
+			name:   "TCP-MultipleSockets",
+			socket: "tcp-multiple",
+			count:  2, // one for ipv6 and ipv4
+		},
+		{
+			name:   "TCP-DualStack-SingleSocket",
+			socket: "tcp-dualstack-single-socket",
+			count:  1,
+		},
+		{
+			name:   "TCP-InvalidType",
+			socket: "tcp-invalid-type",
+			errs:   []error{syscall.ESOCKTNOSUPPORT},
+		},
+		{
+			name:   "UnixStreamSocket",
+			socket: "unix-stream",
+			count:  1,
+		},
+		// UDP/Stream sockets.
+		{
+			name:   "UDP-NoSuchSocket",
+			socket: "9f712891-ca0b-4de7-8750-645c74008ecd",
+			errs:   []error{syscall.ENOENT, syscall.ESRCH},
+			dgram:  true,
+		},
+		{
+			name:   "UDP-SingleSocket",
+			socket: "udp",
+			count:  1,
+			dgram:  true,
+		},
+		{
+			name:   "UDP-ActivateMultipleTimesMustError",
+			socket: "udp",
+			errs:   []error{syscall.EALREADY},
+			dgram:  true,
+		},
+		{
+			name:   "UDP-MultipleSockets",
+			socket: "udp-multiple",
+			count:  2, // one for ipv6 and ipv4
+			dgram:  true,
+		},
+		{
+			name:   "UDP-DualStack-SingleSocket",
+			socket: "udp-dualstack-single-socket",
+			count:  1,
+			dgram:  true,
+		},
+		{
+			name:   "UDP-InvalidType",
+			socket: "udp-invalid-type",
+			errs:   []error{syscall.ESOCKTNOSUPPORT},
+			dgram:  true,
+		},
+		{
+			name:   "UnixDatagramSocket",
+			socket: "unix-datagram",
+			count:  1,
+			dgram:  true,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			var listeners []net.Listener
+			var packetListeners []net.PacketConn
+			var listenerCount int
+			var err error
 
-		t.Run("SingleSocket", func(t *testing.T) {
-			l, err := launchd.Listeners("tcp")
-			DeferCloseListeners(t, l)
-			if err != nil || len(l) < 1 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "-ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
-				}
-				if len(l) == 0 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners>0, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners>0, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
+			if tc.dgram {
+				packetListeners, err = launchd.PacketListeners(tc.socket)
+				listenerCount = len(packetListeners)
+				cleanupPacketListeners(t, packetListeners)
 			} else {
-				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], false)
-				})
+				listeners, err = launchd.Listeners(tc.socket)
+				listenerCount = len(listeners)
+				cleanupNetListeners(t, listeners)
 			}
-		})
 
-		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
-			_, err := launchd.Listeners("tcp")
-			if !errors.Is(err, syscall.EALREADY) {
-				event := TestEvent{
-					Name:    t.Name(),
-					Success: false,
-					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.EALREADY, err),
+			// Check if error is one of specified or nil.
+			t.Run("CheckError", func(t *testing.T) {
+				if len(tc.errs) > 0 {
+					ok := false
+					for i := range tc.errs {
+						if errors.Is(err, tc.errs[i]) {
+							ok = true
+							break
+						}
+					}
+					if !ok {
+						msg := fmt.Sprintf("expected error(%v), but got=%s", tc.errs, err)
+						t.Error(msg)
+						notifyTestServer(t, false, msg)
+					} else {
+						notifyTestServer(t, true, "")
+					}
+				} else {
+					if err != nil {
+						msg := fmt.Sprintf("expected no error, but got=%s", err)
+						t.Error(msg)
+						notifyTestServer(t, false, msg)
+					} else {
+						notifyTestServer(t, true, "")
+					}
 				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected error=%s, got=%s", syscall.EALREADY, err)
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
+			})
 
-		t.Run("MultipleSockets", func(t *testing.T) {
-			l, err := launchd.Listeners("tcp-multiple")
-			DeferCloseListeners(t, l)
-			if err != nil || len(l) < 2 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
+			// Check listener count.
+			t.Run("ListenerCount", func(t *testing.T) {
+				if listenerCount != tc.count {
+					msg := fmt.Sprintf("expected listeners=%d, but got=%d", tc.count, listenerCount)
+					t.Error(msg)
+					notifyTestServer(t, false, msg)
+				} else {
+					notifyTestServer(t, true, "")
 				}
-				if len(l) < 2 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners>1, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners>1, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
-			} else {
-				for i, item := range l {
-					t.Run(fmt.Sprintf("StreamSocketServerPing-%d", i+1),
-						func(t *testing.T) {
-							StreamSocketServerPing(t, item, false)
-						})
-				}
-			}
-		})
+			})
 
-		t.Run("TCPDualStack-SingleSocket", func(t *testing.T) {
-			l, err := launchd.Listeners("tcp-dualstack-single-socket")
-			DeferCloseListeners(t, l)
-			if err != nil || len(l) != 1 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
+			// Ensure listening on the steam socket works.
+			if len(listeners) > 0 {
+				for i := range listeners {
+					t.Run(fmt.Sprintf("ServerPing-%d", i+1), func(t *testing.T) {
+						streamServerPing(t, listeners[i])
+					})
 				}
-				if len(l) != 1 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners=1, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners=1, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
-			} else {
-				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], false)
-				})
 			}
 		})
-		t.Run("TCPInvalidType", func(t *testing.T) {
-			l, err := launchd.Listeners("tcp-invalid-type")
-			DeferCloseListeners(t, l)
-			if !errors.Is(err, syscall.ESOCKTNOSUPPORT) {
-				event := TestEvent{
-					Name:    t.Name(),
-					Success: false,
-					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err)
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
+	}
 
-		t.Run("UnixSocket", func(t *testing.T) {
-			l, err := launchd.Listeners("unix-stream")
-			DeferCloseListeners(t, l)
-			if err != nil || len(l) != 1 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
-				}
-				if len(l) != 1 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners=1, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners=1, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
-			} else {
-				t.Run("StreamSocketServerPing", func(t *testing.T) {
-					StreamSocketServerPing(t, l[0], true)
-				})
-			}
-		})
-	})
-
-	t.Run("PacketListeners", func(t *testing.T) {
-		t.Run("NoSuchSocket", func(t *testing.T) {
-			_, err := launchd.PacketListeners("z")
-			// As per docs, it should be ENOENT, but it returns ESRCH.
-			if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ESRCH) {
-				event := TestEvent{
-					Name:    t.Name(),
-					Success: false,
-					Message: fmt.Sprintf("expected=%s, got=%s", syscall.ENOENT, err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected=%s, got=%s", syscall.ENOENT, err)
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
-
-		t.Run("SingleSocket", func(t *testing.T) {
-			l, err := launchd.PacketListeners("udp")
-			DeferClosePacketListeners(t, l)
-			if err != nil || len(l) < 1 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "-ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
-				}
-				if len(l) == 0 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners>0, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners>0, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
-
-		t.Run("ActivateMultipleTimesMustError", func(t *testing.T) {
-			_, err := launchd.PacketListeners("tcp")
-			if !errors.Is(err, syscall.EALREADY) {
-				event := TestEvent{
-					Name:    t.Name(),
-					Success: false,
-					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.EALREADY, err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected error=%s, got=%s", syscall.EALREADY, err)
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
-
-		t.Run("MultipleSockets", func(t *testing.T) {
-			l, err := launchd.PacketListeners("udp-multiple")
-			DeferClosePacketListeners(t, l)
-			if err != nil || len(l) < 2 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
-				}
-				if len(l) < 2 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners>1, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners>1, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
-		t.Run("UDPDualStack-SingleSocket", func(t *testing.T) {
-			l, err := launchd.PacketListeners("udp-dualstack-single-socket")
-			DeferClosePacketListeners(t, l)
-			if err != nil || len(l) != 1 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
-				}
-				if len(l) != 1 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners=1, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners=1, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
-
-		t.Run("UDPInvalidType", func(t *testing.T) {
-			l, err := launchd.PacketListeners("udp-invalid-type")
-			DeferClosePacketListeners(t, l)
-			if !errors.Is(err, syscall.ESOCKTNOSUPPORT) {
-				event := TestEvent{
-					Name:    t.Name(),
-					Success: false,
-					Message: fmt.Sprintf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err),
-				}
-				NotifyTestServer(t, event)
-				t.Errorf("expected error=%s, got=%s", syscall.ESOCKTNOSUPPORT, err)
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
-
-		t.Run("UnixDatagramSocket", func(t *testing.T) {
-			l, err := launchd.PacketListeners("unix-datagram")
-			DeferClosePacketListeners(t, l)
-			if err != nil || len(l) != 1 {
-				if err != nil {
-					event := TestEvent{
-						Name:    t.Name() + "ErrorCheck",
-						Success: false,
-						Message: fmt.Sprintf("expected no error, got=%s", err),
-					}
-					NotifyTestServer(t, event)
-					t.Errorf("expected=nil, got=%s", err)
-				}
-				if len(l) != 1 {
-					event := TestEvent{
-						Name:    t.Name(),
-						Success: false,
-						Message: fmt.Sprintf("expected listeners=1, got=%d", len(l)),
-					}
-					t.Errorf("expected listeners=1, got=%d", len(l))
-					NotifyTestServer(t, event)
-				}
-			} else {
-				event := TestEvent{Name: t.Name(), Success: true}
-				NotifyTestServer(t, event)
-			}
-		})
-	})
-
+	// notify test server.
 	request, err := http.NewRequestWithContext(
 		context.Background(),
 		http.MethodDelete,
@@ -726,19 +525,10 @@ func TestRemote(t *testing.T) {
 
 func TestLaunchd(t *testing.T) {
 	counter := struct {
-		ok       atomic.Uint64
-		err      atomic.Uint64
-		showLogs atomic.Bool
+		ok  atomic.Uint64
+		err atomic.Uint64
 	}{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-
-	t.Logf("Getwd:%s", func() string {
-		v, err := os.Getwd()
-		if err != nil {
-			return err.Error()
-		}
-		return v
-	}())
 
 	// Handler
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -747,15 +537,13 @@ func TestLaunchd(t *testing.T) {
 			b, err := io.ReadAll(r.Body)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				counter.showLogs.Store(true)
 				t.Errorf("Error reading request: %s", err)
 				return
 			}
-			var event TestEvent
+			var event testEvent
 			err = json.Unmarshal(b, &event)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				counter.showLogs.Store(true)
 				t.Errorf("Error unmarshal data: %s", err)
 				return
 			}
@@ -773,7 +561,6 @@ func TestLaunchd(t *testing.T) {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			t.Errorf("Unsupported request method: %s", r.Method)
-			counter.showLogs.Store(true)
 			return
 		}
 	})
@@ -798,40 +585,43 @@ func TestLaunchd(t *testing.T) {
 	// Create launchd directory if not exists.
 	if _, err := os.Stat(agentsDir); errors.Is(err, os.ErrNotExist) {
 		t.Logf("Creating dir - %s", agentsDir)
-		err = os.MkdirAll(agentsDir, 0o755)
+		err = os.MkdirAll(agentsDir, 0o700)
 		if err != nil {
 			t.Fatalf("Failed to create dir: %s", err)
 		}
 	}
 
-	// Generate random prefix for test
+	// Generate random prefix for test.
 	rb := make([]byte, 9)
 	_, err = rand.Read(rb)
 	if err != nil {
 		t.Fatalf("Failed to generate random bundle suffix")
 	}
 
-	// Render template
-	//
-	bundle := fmt.Sprintf("test.go-svc.%s", hex.EncodeToString(rb))
+	coverageDir := coverageDir(t)
+	if coverageDir == "" {
+		coverageDir = t.TempDir()
+	}
 
+	// Render template.
+	bundle := fmt.Sprintf("test.go-svc.%s", hex.EncodeToString(rb))
 	plistFileName := filepath.Join(agentsDir, fmt.Sprintf("%s.plist", bundle))
-	data := TemplateData{
+	data := templateData{
 		BundleID:                 bundle,
 		GoTestServerAddr:         server.URL,
 		GoTestBinary:             os.Args[0],
-		GoTestName:               "^(TestRemote|TestTrampoline)",
-		GoCoverDir:               TestingCoverDir(t),
+		GoTestName:               "^TestRemote",
+		GoCoverDir:               coverageDir,
 		StdoutFile:               stdout,
 		StderrFile:               stderr,
-		TCP:                      strconv.Itoa(GetFreePort(t)),
-		TCPInvalidType:           strconv.Itoa(GetFreePort(t)),
-		UDP:                      strconv.Itoa(GetFreePort(t)),
-		UDPInvalidType:           strconv.Itoa(GetFreePort(t)),
-		TCPMultiple:              strconv.Itoa(GetFreePort(t)),
-		UDPMultiple:              strconv.Itoa(GetFreePort(t)),
-		TCPDualStackSingleSocket: strconv.Itoa(GetFreePort(t)),
-		UDPDualStackSingleSocket: strconv.Itoa(GetFreePort(t)),
+		TCP:                      strconv.Itoa(getFreePort(t)),
+		TCPInvalidType:           strconv.Itoa(getFreePort(t)),
+		UDP:                      strconv.Itoa(getFreePort(t)),
+		UDPInvalidType:           strconv.Itoa(getFreePort(t)),
+		TCPMultiple:              strconv.Itoa(getFreePort(t)),
+		UDPMultiple:              strconv.Itoa(getFreePort(t)),
+		TCPDualStackSingleSocket: strconv.Itoa(getFreePort(t)),
+		UDPDualStackSingleSocket: strconv.Itoa(getFreePort(t)),
 		UnixStreamSocket:         filepath.Join(dir, "unix-stream.socket"),
 		UnixDatagramSocket:       filepath.Join(dir, "unix-datagram.socket"),
 	}
@@ -884,7 +674,9 @@ func TestLaunchd(t *testing.T) {
 	}
 	cmd := exec.CommandContext(ctx, "launchctl", "load", "-w", plistFileName)
 	output, err := cmd.CombinedOutput()
-	t.Logf("launchctl load output: %s", string(output))
+	if len(output) > 0 {
+		t.Logf("launchctl load output: %s", string(output))
+	}
 	if err != nil {
 		t.Fatalf("Failed to load plist: %s", err)
 	}
@@ -892,7 +684,9 @@ func TestLaunchd(t *testing.T) {
 		t.Logf("Unloading plist file: %s", plistFileName)
 		cmd = exec.Command("launchctl", "unload", plistFileName)
 		output, err = cmd.CombinedOutput()
-		t.Logf("launchctl unload output: %s", string(output))
+		if len(output) > 0 {
+			t.Logf("launchctl unload output: %s", string(output))
+		}
 		if err != nil {
 			t.Fatalf("Failed to unload plist: %s", err)
 		}
@@ -900,7 +694,6 @@ func TestLaunchd(t *testing.T) {
 
 	// Waiting for test binary to POST results
 	t.Logf("Waiting for remote tests to publish results...")
-	//nolint:gosimple // ignore
 	select {
 	case <-ctx.Done():
 	}
@@ -910,7 +703,7 @@ func TestLaunchd(t *testing.T) {
 		t.Errorf("Test timed out while waiting for remote (remote panic?)")
 	}
 
-	t.Logf("errors=%d, ok=%d, logs=%t", counter.err.Load(), counter.ok.Load(), counter.showLogs.Load())
+	t.Logf("Remote test counters errors=%d, ok=%d", counter.err.Load(), counter.ok.Load())
 
 	// Check if Test results.
 	switch {
@@ -919,7 +712,7 @@ func TestLaunchd(t *testing.T) {
 	case counter.err.Load() == 0 && counter.ok.Load() > 1:
 		t.Logf("%d Remote tests successful", counter.ok.Load())
 	default:
-		t.Errorf("%d Remote tests returned an error", counter.err.Load())
+		t.Errorf("%d Remote tests returned errors", counter.err.Load())
 	}
 
 	// Check Log output from launchd unit
@@ -930,14 +723,18 @@ func TestLaunchd(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to read output from stdout: %s", err)
 	}
-	NewOutputLogger(t, "Remote Stdout").LogOutput(stdoutBuf)
+	remoteOutputWriter := NewTestingWriter(t, "Remote Stdout")
+	_, _ = remoteOutputWriter.Write(stdoutBuf)
+	_, _ = remoteOutputWriter.Write(nil) // flush any pending buffers.
 
 	t.Logf("Reading stderr from %s", stderr)
 	stderrBuf, err := os.ReadFile(stderr)
 	if err != nil {
 		t.Errorf("Failed to read output from stderr: %s", err)
 	}
-	NewOutputLogger(t, "Remote Stderr").LogOutput(stderrBuf)
+	remoteErrWriter := NewTestingWriter(t, "Remote Stderr")
+	_, _ = remoteErrWriter.Write(stderrBuf)
+	_, _ = remoteErrWriter.Write(nil) // flush any pending buffers.
 }
 
 func TestListeners_NotManagedByLaunchd(t *testing.T) {

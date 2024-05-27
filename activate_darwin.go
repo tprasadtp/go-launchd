@@ -17,21 +17,24 @@ import (
 )
 
 //go:cgo_import_dynamic libc_launch_activate_socket launch_activate_socket "/usr/lib/libSystem.B.dylib"
-//nolint:revive,stylecheck // ignore
+//nolint:revive,stylecheck,gochecknoglobals // ignore
 var libc_trampoline_launch_activate_socket_addr uintptr
 
 //go:cgo_import_dynamic libc_free free "/usr/lib/libSystem.B.dylib"
-//nolint:revive,stylecheck // ignore
+//nolint:revive,stylecheck,gochecknoglobals // ignore
 var libc_trampoline_free_addr uintptr
 
-// Defined in package [runtime] as [runtime.syscall_syscall], which is
-// pushed to [syscall] as [syscall.syscall_syscall]
+// syscall_syscall is implemented in package [runtime] and pushed to [syscall].
 //
-// [runtime.syscall_syscall]: https://go.googlesource.com/go/+/a10e42f219abb9c5bc4e7d86d9464700a42c7d57/src/runtime/sys_darwin.go#21
-// [syscall.syscall_syscall]: https://go.googlesource.com/go/+/a10e42f219abb9c5bc4e7d86d9464700a42c7d57/src/runtime/sys_darwin.go#19
+// Go 1.23 introduces limitations on use of linknames([GH-67401]). However,
+// it keeps backward compatibility for [runtime.syscall_syscall] via [ef225d1].
+//
+// [runtime.syscall_syscall]: https://go.googlesource.com/go/+/ef225d1c57a97af984af114ee52005314530bbe2/src/runtime/sys_darwin.go#23
+// [ef225d1]: https://go.googlesource.com/go/+/ef225d1c57a97af984af114ee52005314530bbe2
+// [GH-67401]: https://github.com/golang/go/issues/67401
 //
 //go:linkname syscall_syscall syscall.syscall
-//nolint:revive,nonamedreturns // ignore
+//nolint:revive // for linkname
 func syscall_syscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 
 // listenerFdsWithName returns file descriptors corresponding to the named socket.
@@ -85,8 +88,9 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	// used by the [golang.org/x/sys/unix] package and thus is fairly
 	// reliable.
 	//
-	// Refs - https://github.com/golang/go/issues/65355
-
+	// https://github.com/golang/go/issues/65355
+	// https://github.com/golang/go/issues/67401
+	// https://github.com/golang/go/issues/51087
 	r1, _, e1 := syscall_syscall(
 		libc_trampoline_launch_activate_socket_addr,
 		uintptr(unsafe.Pointer(libcName)), // socket name to filter by
