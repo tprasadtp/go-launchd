@@ -694,6 +694,7 @@ func TestLaunchd(t *testing.T) {
 
 	// Waiting for test binary to POST results
 	t.Logf("Waiting for remote tests to publish results...")
+	//nolint:gosimple // for testing only.
 	select {
 	case <-ctx.Done():
 	}

@@ -73,8 +73,8 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	var count uint // number of fds
 
 	// Because we are not using syscall.Syscall, but syscall_syscall directly,
-	// which does not use "go:uintptrkeepalive" directive. Pin go pointers passed to
-	// libc code explicitly.
+	// which does not use "go:uintptrkeepalive" directive. Pin go pointers
+	// passed to libc code.
 
 	var pinner runtime.Pinner
 	pinner.Pin(&fd)
@@ -88,8 +88,8 @@ func listenerFdsWithName(name string) ([]int32, error) {
 	// used by the [golang.org/x/sys/unix] package and thus is fairly
 	// reliable.
 	//
-	// https://github.com/golang/go/issues/65355
-	// https://github.com/golang/go/issues/67401
+	// https://github.com/golang/go/issues/65355 (check if syscall.syscall_syscall is moved here)
+	// https://github.com/golang/go/issues/67401 (resolved)
 	// https://github.com/golang/go/issues/51087
 	r1, _, e1 := syscall_syscall(
 		libc_trampoline_launch_activate_socket_addr,

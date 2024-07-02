@@ -21,6 +21,7 @@ jobs:
         go:
           - stable
           - oldstable
+          - 1.23.0-rc.1
         os:
           - macos-12
           - macos-13
@@ -30,8 +31,12 @@ jobs:
         exclude:
           - os: windows-latest
             go: oldstable
+          - os: windows-latest
+            go: 1.23.0-rc.1
           - os: ubuntu-latest
             go: oldstable
+          - os: ubuntu-latest
+            go: 1.23.0-rc.1
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout

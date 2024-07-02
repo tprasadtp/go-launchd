@@ -6,7 +6,7 @@ project_name: go-launchd
 
 snapshot:
   # This should be semver otherwise triggers https://github.com/goreleaser/goreleaser/issues/2081
-  name_template: "{{ .Version }}-{{.ShortCommit}}-dev"
+  name_template: "{{ .Version }}-{{.ShortCommit}}-snapshot"
 
 builds:
   # If true, skip the build.
@@ -42,11 +42,11 @@ changelog:
       order: 4
 
     - title: "🧪 Testing"
-      regexp: '^.*?(test|testing)(\([[:word:]]+\))??!?:.+$'
+      regexp: '^.*?(test(s)?|testing|e2e)(\([[:word:]]+\))??!?:.+$'
       order: 5
 
     - title: "📖 Documentation"
-      regexp: '^.*?(documentation|docs(s)?)(\([[:word:]]+\))??!?:.+$'
+      regexp: '^.*?(documentation|doc(s)?)(\([[:word:]]+\))??!?:.+$'
       order: 8
   filters:
     exclude:
